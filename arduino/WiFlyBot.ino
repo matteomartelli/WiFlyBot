@@ -51,7 +51,7 @@ char chMisc;
 
 WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
 
-// Arduino Setup routine. TODO: move this in another file
+// Arduino Setup routine. TODO: move this in another file.
 void setup() {
 	Serial.begin(9600);
 	Serial << F("Arduino mobile wifi") << endl
