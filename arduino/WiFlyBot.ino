@@ -27,10 +27,8 @@
 */
 
 #include <Arduino.h>
-#include <Time.h>
 #include <SoftwareSerial.h>
 #include <Streaming.h>
-#include <PString.h>
 #include <WiFlySerial.h>
 #include "MemoryFree.h"
 
@@ -38,16 +36,36 @@
 #define ARDUINO_TX_PIN 8
 #define BUFFER_SIZE 80
 
+#define IP_NBYTES 4
+#define MAC_NBYTES 6
+
+/* Buffers size used in the packets parsing operation
+ * Data are sent has hex string, thus the buffers size are
+ * (data_hex_bytes * 2) (+ 1 for the null terminator char) */
+#define IP_BUFFER_SIZE (IP_NBYTES*2) + 1 
+#define MAC_BUFFER_SIZE (MAC_NBYTES*2) + 1 
+#define RSSI_BUFFER_SIZE 3 /* (2*1Byte) + 1 */
+
 String ssid = "ARDUINOS";
 String localIp = "10.42.1.11";
 String localPort = "5005";
 String netMask = "255.255.0.0";
 
-char buffer[BUFFER_SIZE];
-
+char buffer[BUFFER_SIZE],mac[MAC_BUFFER_SIZE], ip[IP_BUFFER_SIZE], 
+	 rssi[RSSI_BUFFER_SIZE], *current;
 /* The current character.
  * TODO: Is this needed global? */
 char chMisc; 
+int endRead, startRead, sharps, commas, count;
+
+/* Data of a wifi end point are stored here. */
+struct WiFiNode{
+	unsigned char ip[IP_NBYTES]; 
+	unsigned char mac[MAC_NBYTES];
+	int rssi; /*TODO: better convert this directly as integer */
+};
+
+WiFiNode endPoints[2]; //An array of WiFiNodes
 
 WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
 
@@ -66,20 +84,20 @@ void setup() {
 		<< F("Wifi MAC: ") << wifi.getMAC(buffer, BUFFER_SIZE) << endl;
 
 	/* Create the ad-hoc connection */
-	//sendCommandString(&wifi, "scan");
-	sendCommandString(&wifi, "set wlan join 4"); //Ad-hoc mode (change to 1 for joining an existing network)
-	sendCommandString(&wifi, "set wlan ssid "+ssid);
-	//sendCommandString(&wifi, "set join "+ssid); //For join an existing network
-	sendCommandString(&wifi, "set wlan chan 1");
-	sendCommandString(&wifi, "set ip dhcp 0");
-	sendCommandString(&wifi, "set ip address "+localIp);
+	//sendCmd(&wifi, "scan");
+	sendCmd(&wifi, "set wlan join 4"); //Ad-hoc mode (change to 1 for joining an existing network)
+	sendCmd(&wifi, "set wlan ssid "+ssid);
+	//sendCmd(&wifi, "set join "+ssid); //For join an existing network
+	sendCmd(&wifi, "set wlan chan 1");
+	sendCmd(&wifi, "set ip dhcp 0");
+	sendCmd(&wifi, "set ip address "+localIp);
 	
-	sendCommandString(&wifi, "set ip netmask "+netMask);
+	sendCmd(&wifi, "set ip netmask "+netMask);
 	
-	sendCommandString(&wifi, "set ip proto 3");
-	sendCommandString(&wifi, "set ip local "+localPort);
-	sendCommandString(&wifi, "save");
-	sendCommandString(&wifi, "reboot");
+	sendCmd(&wifi, "set ip proto 3");
+	sendCmd(&wifi, "set ip local "+localPort);
+	sendCmd(&wifi, "save");
+	sendCmd(&wifi, "reboot");
 
 	Serial << F("Initial WiFi Settings :") << endl  
 		<< F("IP: ") << wifi.getIP(buffer, BUFFER_SIZE) << endl
@@ -98,40 +116,132 @@ void setup() {
 	wifi.exitCommandMode();
 	
 	if(wifi.isInCommandMode())
-		errorPanic("Can't exit from command mode");
+		errorPanic(F("Can't exit from command mode"));
 	
 	Serial << F("Listening on port ") << localPort << endl;
+	
+	/* TODO: structs initialization */
+	/*endPoints[0].ip = 4; 
+	endPoints[0].mac = 1;
+	endPoints[0].rssi = 2;
+	
+	endPoints[1].ip = 9; 
+	endPoints[1].mac = 10;
+	endPoints[1].rssi = 22;*/
+	resetFields();
 }
+	
+	
+/* TODO: 
+	 * 2) Parse the input string. 
+	 * 		Store in some structs the clients IPs, MACs and RSSIs. 
+	 * 3) In another task (timer?) handle the bot movement getting there
+	 * 		the here client stored informations.
+	 *    Or better handling the packets retreival there? Can I handle WiFly Serial IO interrupt?  */ 
 
+	
 void loop() {
-	/*Serial << F("RSSI: ") << wifi.getRSSI(buffer, BUFFER_SIZE) << endl;
-	memset (buffer,'\0',BUFFER_SIZE);
-	wifi.exitCommandMode();*/
-  
-	while ((chMisc = wifi.read()) > -1) {
-		Serial.print(chMisc);
-		/* TODO: 
-		 * 1) Verify that multiple inputs don't come in concurrency.
-		 * 		How are packets send and read? 
-		 * 2) Parse the input string. 
-		 * 		Store in some structs the clients IPs, MACs and RSSIs. 
-		 * 3) In another task (timer?) handle the bot movement getting there
-		 * 		the here client stored informations. */ 
-		if(chMisc == '}')
-			Serial.print('\n');
+	while (wifi.available() && ((chMisc = wifi.read()) > -1)) {
+		
+		/* PKT FORMAT: ###IP,MAC,RSSI; */
+		
+		if(sharps == 3){
+			startRead = 1;
+			sharps = 0;
+		}
+		
+		if(chMisc == '#')
+			sharps++;
+		else sharps = 0;
+		
+		if(chMisc == ';'){
+			endRead = 1;
+			startRead = 0;
+		}
+		
+		if(startRead == 1){
+			if(chMisc == ','){
+				commas++;
+				if(count){
+					current[count] = '\0'; /* Null terminate the string */
+					count = 0;
+				}
+				continue;
+			}
+			if(commas == 0){
+				/* IP CASE */
+				if(count >= IP_BUFFER_SIZE)
+					continue;
+				current = ip;
+				ip[count++] = chMisc;
+			}
+			if(commas == 1){
+				/* MAC CASE */
+				if(count >= MAC_BUFFER_SIZE)
+					continue;
+				current = mac;
+				mac[count++] = chMisc;
+			}
+			if(commas == 2){
+				/* RSSI CASE */
+				if(count >= RSSI_BUFFER_SIZE)
+					continue;
+				current = rssi;
+				rssi[count++] = chMisc;
+			}
+		}
+		
+		
+		
 	}
+	if(endRead){
+		Serial << F("IP:") << ip << F(" MAC: ") << mac << F(" RSSI: ") << rssi << endl;
+		/* TODO convert mac hex string in a temp bytes array, compare it with the previously stored in the endpoints array
+		 * if no one matches, look for an empty space, if matches update its values */
+		string2bytes(ip, endPoints[0].ip, IP_NBYTES);
+		Serial << endPoints[0].ip[0] << F(".") << endPoints[0].ip[1] << F(".") << endPoints[0].ip[2] << F(".") << endPoints[0].ip[3];
+		resetFields();
 
+	}
 }
 
-/* This functions just maps call the respective SendCommand function of 
- * the WiFly Serial library. It is needed just for using the string objects
+int string2bytes(char *str, unsigned char *bytes, int nbytes){
+	char *pos = str;
+	int count = 0;
+	for(count = 0; count < nbytes; count++) {
+		sscanf(pos, "%2hhx", &bytes[count]);
+		pos += 2;
+	}
+	return 0;
+}
+	
+
+/* Set and reset to zero/null the global variables used in the parsing process */
+void resetFields(){
+	endRead = startRead = sharps = commas = count = 0;
+	memset (ip,'\0',IP_BUFFER_SIZE);
+	memset (mac,'\0',MAC_BUFFER_SIZE);
+	memset (rssi,'\0',RSSI_BUFFER_SIZE);
+}	
+
+/* This functions just calls the respective SendCommand function of 
+ * the WiFly Serial library. It is needed for using the string objects
  * in a more confortable way. */
-void sendCommandString(WiFlySerial *wifi, String cmd){
+void sendCmd(WiFlySerial *wifi, String cmd){
 	wifi->SendCommand(&(cmd[0]), ">",buffer, BUFFER_SIZE);
 }
 
-void errorPanic(char *err){
+/*void updateWiFiNode(struct WiFiNode *node){
+	Serial << F("IP: ") << node->ip << F(" MAC: ") << node->mac << F(" RSSI: ") << node->rssi << endl;
+}*/
+
+void errorPanic(__FlashStringHelper *err){
 	Serial.print(F("ERROR PANIC :"));
 	Serial.println(err);
 	while(1);
+}
+
+void printDebug(__FlashStringHelper *msg){
+	Serial.print(F("DEBUG: "));
+	Serial.println(msg);
 }

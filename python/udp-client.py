@@ -42,6 +42,17 @@ def getRssi(interface, rMAC):
 	return False 
 
 
+#Convert the ip string in a hex format string
+def formatIP(ip):
+	ipArray = ip.split('.')
+	ipRet = ""
+	for i in ipArray:
+		t = hex(int(i)).replace('0x', '')
+		if((len(t) % 2) != 0): #If the number of chars is odd
+			t = '0'+t			 #add a 0 before the char
+		ipRet = ipRet + t
+	return ipRet
+
 #some constants
 MAC_ADDR_LEN = 17
 
@@ -77,17 +88,26 @@ if idx != -1:
 	mac = ifconf[start_idx:start_idx+MAC_ADDR_LEN]
 else:
 	mac = "00:00:00:00:00:00"
-	
+
+mac = mac.replace(':', '') #Remove dots separators	
+
 while True:
 	# SOCK_DGRAM specifies that this is UDP
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
 	s.bind((local_ip, 0))
 	rssi = getRssi(iface, remote_MAC)
+	
 	if rssi == False:
-		rssi = "NAN"
+		rssi = "XX"
+	else:
+		#Convert the rssi string to a hex format string
+		rssi = hex(int(rssi.replace('-', ''))).replace('0x','')
+		if((len(rssi) % 2) != 0): #If the number of chars is odd
+			rssi = '0'+rssi			 #add a 0 before the char
+	
 	# enter the data content of the UDP packet
 	#data = '*OPEN*'+rssi+'*CLOS*';
-	data = "{###;"+local_ip+";"+mac+";"+rssi+"}"
+	data = "###"+formatIP(local_ip)+","+mac+","+rssi+";"
 	s.sendto(data, (remote_ip, remote_port))
 	if __debug__:
 		print "DEBUG: UDP packet sent:"+data
