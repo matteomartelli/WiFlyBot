@@ -99,15 +99,15 @@ while True:
 	
 	if rssi == False:
 		rssi = "XX"
-	else:
+	"""else:
 		#Convert the rssi string to a hex format string
 		rssi = hex(int(rssi.replace('-', ''))).replace('0x','')
 		if((len(rssi) % 2) != 0): #If the number of chars is odd
-			rssi = '0'+rssi			 #add a 0 before the char
+			rssi = '0'+rssi			 #add a 0 before the char"""
 	
 	# enter the data content of the UDP packet
 	#data = '*OPEN*'+rssi+'*CLOS*';
-	data = "###"+formatIP(local_ip)+","+mac+","+rssi+";"
+	data = "###"+local_ip+","+mac+","+rssi+";"
 	s.sendto(data, (remote_ip, remote_port))
 	if __debug__:
 		print "DEBUG: UDP packet sent:"+data

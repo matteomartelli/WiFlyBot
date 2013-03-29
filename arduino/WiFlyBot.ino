@@ -36,15 +36,11 @@
 #define ARDUINO_TX_PIN 8
 #define BUFFER_SIZE 80
 
-#define IP_NBYTES 4
-#define MAC_NBYTES 6
+#define IP_BUFFER_SIZE 16
+#define MAC_BUFFER_SIZE 16
+#define RSSI_BUFFER_SIZE 8
 
-/* Buffers size used in the packets parsing operation
- * Data are sent has hex string, thus the buffers size are
- * (data_hex_bytes * 2) (+ 1 for the null terminator char) */
-#define IP_BUFFER_SIZE (IP_NBYTES*2) + 1 
-#define MAC_BUFFER_SIZE (MAC_NBYTES*2) + 1 
-#define RSSI_BUFFER_SIZE 3 /* (2*1Byte) + 1 */
+#define N_ENDPOINTS 2
 
 String ssid = "ARDUINOS";
 String localIp = "10.42.1.11";
@@ -53,21 +49,78 @@ String netMask = "255.255.0.0";
 
 char buffer[BUFFER_SIZE],mac[MAC_BUFFER_SIZE], ip[IP_BUFFER_SIZE], 
 	 rssi[RSSI_BUFFER_SIZE], *current;
-/* The current character.
- * TODO: Is this needed global? */
+
 char chMisc; 
-int endRead, startRead, sharps, commas, count;
+int endRead, startRead, sharps, commas, count, idx;
+int distance = -1;
 
 /* Data of a wifi end point are stored here. */
 struct WiFiNode{
-	unsigned char ip[IP_NBYTES]; 
-	unsigned char mac[MAC_NBYTES];
-	int rssi; /*TODO: better convert this directly as integer */
+	char ip[IP_BUFFER_SIZE]; 
+	char mac[MAC_BUFFER_SIZE];
+	int rssi;
+	bool empty;
 };
 
-WiFiNode endPoints[2]; //An array of WiFiNodes
+WiFiNode endPoints[N_ENDPOINTS]; //An array of WiFiNodes
 
 WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
+
+int findNode(char *mac){
+	for(int i = 0; i < N_ENDPOINTS; i++){
+		if(strcmp(endPoints[i].mac, mac) == 0) 
+			return i;
+	}
+	return -1;
+}
+	
+int findEmpty(){
+	for(int i = 0; i < N_ENDPOINTS; i++){
+		if(endPoints[i].empty) 
+			return i;
+	}
+	return -1;
+}
+
+/* Set and reset to zero/null the global variables used in the parsing process */
+void resetFields(){
+	endRead = startRead = sharps = commas = count = 0;
+	memset (ip,'\0',IP_BUFFER_SIZE);
+	memset (mac,'\0',MAC_BUFFER_SIZE);
+	memset (rssi,'\0',RSSI_BUFFER_SIZE);
+}	
+
+/* This functions just calls the respective SendCommand function of 
+ * the WiFly Serial library. It is needed for using the string objects
+ * in a more confortable way. */
+void sendCmd(WiFlySerial *wifi, String cmd){
+	wifi->SendCommand(&(cmd[0]), ">",buffer, BUFFER_SIZE);
+}
+
+/*void updateWiFiNode(struct WiFiNode *node){
+	Serial << F("IP: ") << node->ip << F(" MAC: ") << node->mac << F(" RSSI: ") << node->rssi << endl;
+}*/
+
+void errorPanic(__FlashStringHelper *err){
+	Serial.print(F("ERROR PANIC :"));
+	Serial.println(err);
+	while(1);
+}
+
+void printDebug(__FlashStringHelper *msg){
+	Serial.print(F("DEBUG: "));
+	Serial.println(msg);
+}
+
+int string2bytes(char *str, unsigned char *bytes, int nbytes){
+	char *pos = str;
+	int count = 0;
+	for(count = 0; count < nbytes; count++) {
+		sscanf(pos, "%2hhx", &bytes[count]);
+		pos += 2;
+	}
+	return 0;
+}
 
 // Arduino Setup routine. TODO: move this in another file.
 void setup() {
@@ -121,20 +174,19 @@ void setup() {
 	Serial << F("Listening on port ") << localPort << endl;
 	
 	/* TODO: structs initialization */
-	/*endPoints[0].ip = 4; 
-	endPoints[0].mac = 1;
-	endPoints[0].rssi = 2;
-	
-	endPoints[1].ip = 9; 
-	endPoints[1].mac = 10;
-	endPoints[1].rssi = 22;*/
+	for(int i = 0; i < N_ENDPOINTS; i++){
+		memset(endPoints[i].ip, '\0', IP_BUFFER_SIZE);
+		memset(endPoints[i].mac, '\0', MAC_BUFFER_SIZE);
+		endPoints[i].rssi = -1;
+		endPoints[i].empty = true;
+	}
+
 	resetFields();
 }
 	
 	
 /* TODO: 
-	 * 2) Parse the input string. 
-	 * 		Store in some structs the clients IPs, MACs and RSSIs. 
+	 * Better a tcp connection when a node enters and when a node leaves?
 	 * 3) In another task (timer?) handle the bot movement getting there
 	 * 		the here client stored informations.
 	 *    Or better handling the packets retreival there? Can I handle WiFly Serial IO interrupt?  */ 
@@ -189,59 +241,41 @@ void loop() {
 				current = rssi;
 				rssi[count++] = chMisc;
 			}
-		}
-		
-		
-		
+		}		
 	}
 	if(endRead){
-		Serial << F("IP:") << ip << F(" MAC: ") << mac << F(" RSSI: ") << rssi << endl;
-		/* TODO convert mac hex string in a temp bytes array, compare it with the previously stored in the endpoints array
-		 * if no one matches, look for an empty space, if matches update its values */
-		string2bytes(ip, endPoints[0].ip, IP_NBYTES);
-		Serial << endPoints[0].ip[0] << F(".") << endPoints[0].ip[1] << F(".") << endPoints[0].ip[2] << F(".") << endPoints[0].ip[3];
+				
+		if((idx = findNode(mac)) != -1){ //mac matches
+			if( strcmp(endPoints[idx].ip, ip) != 0) //ip doesn't match
+				errorPanic(F("Ip has changed")); //TODO: what here?
+		}else if ((idx = findEmpty()) == -1)
+			printDebug(F("No matches and no empty space")); //TODO: What here?;
+			
+		/* If it comes here, it should have found the correct idx */
+		memcpy(endPoints[idx].ip, ip, strlen(ip)); 
+		memcpy(endPoints[idx].mac, mac, strlen(mac)); 
+		endPoints[idx].rssi = -(atoi(rssi));
+		endPoints[idx].empty = false;
+		
+		printDebug(F("STATISTICS"));
+		for(int i = 0; i < N_ENDPOINTS; i++){
+			Serial << F("IDX: ") << i << F(" IP: ") 
+				<< endPoints[i].ip << F(" MAC: ") 
+				<< endPoints[i].mac << F(" RSSI: ") 
+				<< endPoints[i].rssi << endl;
+		}
+		
+		/* Considering only the two nodes case */
+		if(!endPoints[0].empty && !endPoints[1].empty){
+			distance = abs(endPoints[0].rssi - endPoints[1].rssi); /* TODO: check this */
+			Serial << F("Absolute distance : ") << distance << endl;
+		}
+		
 		resetFields();
-
 	}
-}
-
-int string2bytes(char *str, unsigned char *bytes, int nbytes){
-	char *pos = str;
-	int count = 0;
-	for(count = 0; count < nbytes; count++) {
-		sscanf(pos, "%2hhx", &bytes[count]);
-		pos += 2;
-	}
-	return 0;
-}
 	
-
-/* Set and reset to zero/null the global variables used in the parsing process */
-void resetFields(){
-	endRead = startRead = sharps = commas = count = 0;
-	memset (ip,'\0',IP_BUFFER_SIZE);
-	memset (mac,'\0',MAC_BUFFER_SIZE);
-	memset (rssi,'\0',RSSI_BUFFER_SIZE);
-}	
-
-/* This functions just calls the respective SendCommand function of 
- * the WiFly Serial library. It is needed for using the string objects
- * in a more confortable way. */
-void sendCmd(WiFlySerial *wifi, String cmd){
-	wifi->SendCommand(&(cmd[0]), ">",buffer, BUFFER_SIZE);
+	/* TODO: move the robot trying to decrease the avarage distance */
+	
 }
 
-/*void updateWiFiNode(struct WiFiNode *node){
-	Serial << F("IP: ") << node->ip << F(" MAC: ") << node->mac << F(" RSSI: ") << node->rssi << endl;
-}*/
 
-void errorPanic(__FlashStringHelper *err){
-	Serial.print(F("ERROR PANIC :"));
-	Serial.println(err);
-	while(1);
-}
-
-void printDebug(__FlashStringHelper *msg){
-	Serial.print(F("DEBUG: "));
-	Serial.println(msg);
-}
