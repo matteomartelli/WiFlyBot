@@ -23,6 +23,7 @@ import socket
 import sys
 import time
 import string
+import re
 from optparse import OptionParser
 
 
@@ -41,7 +42,8 @@ def getRssi(interface, rMAC, useiw):
 		if(found and stations[i] == "signal:" and i+1 <= len(stations)):
 			return stations[i+1]
 	else:
-	 	rssi = commands.getoutput("echo -n $(cat /proc/net/wireless | grep '"+iface+"' | cut -d'.' -f2 | sed s/' '//g)") #TODO use this for broadcom interfaces
+	 	ret = commands.getoutput("echo -n $(cat /proc/net/wireless | grep '"+iface+"')") #TODO use this for broadcom interfaces
+		rssi = re.compile("\s+").split(ret)[3]
 		if (rssi != ""):
 			return rssi
 				
@@ -130,6 +132,6 @@ while True:
 	s.sendto(data, (remote_ip, remote_port))
 	if __debug__:
 		print "DEBUG: UDP packet sent:"+data
-	time.sleep(1)
+	time.sleep(0.5)
 	# close the socket
 	s.close()
