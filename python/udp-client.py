@@ -23,21 +23,28 @@ import socket
 import sys
 import time
 import string
+from optparse import OptionParser
 
 
 #Return the rssi between the given interface and the remote MAC address
-def getRssi(interface, rMAC):
-	stations = commands.getoutput("iw dev "+interface+" station dump")
-	#TODO: error check
-	stations = stations.split()
-	found = False
-	for i in range(0, len(stations)):
-		if(found == False and stations[i] == "Station" and stations[i+1] == rMAC):
-			found = True
+def getRssi(interface, rMAC, useiw):
+	
+	if (useiw):
+		stations = commands.getoutput("iw dev "+interface+" station dump")
+		#TODO: error check (use directly MAC search from iw command. See man iw)
+		stations = stations.split()
+		found = False
+		for i in range(0, len(stations)):
+			if(found == False and stations[i] == "Station" and stations[i+1] == rMAC):
+				found = True
 			
 		if(found and stations[i] == "signal:" and i+1 <= len(stations)):
 			return stations[i+1]
-	
+	else:
+	 	rssi = commands.getoutput("echo -n $(cat /proc/net/wireless | grep '"+iface+"' | cut -d'.' -f2 | sed s/' '//g)") #TODO use this for broadcom interfaces
+		if (rssi != ""):
+			return rssi
+				
 	#Some error has occured if it comes here		
 	return False 
 
@@ -53,11 +60,21 @@ def formatIP(ip):
 		ipRet = ipRet + t
 	return ipRet
 
+parser = OptionParser()
+parser.add_option("--noiw",
+                  action="store_false", dest="useiw", default=True,
+                  help="don't use the iw command to get the rssi")
+parser.add_option("-d", "--power-difect",dest="powerDifect", default="0",
+                  help="add a power difect to the interface")
+
+(options, args) = parser.parse_args()
+
 #some constants
 MAC_ADDR_LEN = 17
 
+#TODO CONVERT OPT SELECTION WITH OptionParser
 if len(sys.argv) < 5:
-	print "USAGE: "+sys.argv[0]+" interface remote_ip remote_port remote_MAC"
+	print "USAGE: "+sys.argv[0]+" interface remote_ip remote_port remote_MAC [power_difect]"
 	sys.exit();
 
 iface = sys.argv[1]
@@ -72,10 +89,10 @@ if local_ip == "":
 remote_ip = sys.argv[2]
 remote_port = int(sys.argv[3])
 remote_MAC = sys.argv[4]
+powerDifect = int(options.powerDifect)
 
 cmdIfConfig = "ifconfig "+iface;
 ifconf = commands.getoutput(cmdIfConfig)
-#cmdRssi = "echo -n $(cat /proc/net/wireless | grep '"+iface+"' | cut -d'.' -f2 | sed s/' '//g)" #TODO use this for broadcom interfaces
 
 #find MAC address
 if ifconf == "":
@@ -95,16 +112,18 @@ while True:
 	# SOCK_DGRAM specifies that this is UDP
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, 0)
 	s.bind((local_ip, 0))
-	rssi = getRssi(iface, remote_MAC)
+	rssi = getRssi(iface, remote_MAC, options.useiw)
 	
 	if rssi == False:
-		rssi = "XX"
-	"""else:
+		rssi = "01"
+		"""else:
 		#Convert the rssi string to a hex format string
 		rssi = hex(int(rssi.replace('-', ''))).replace('0x','')
 		if((len(rssi) % 2) != 0): #If the number of chars is odd
 			rssi = '0'+rssi			 #add a 0 before the char"""
-	
+	else:
+		rssi = str(int(rssi)-powerDifect)	
+
 	# enter the data content of the UDP packet
 	#data = '*OPEN*'+rssi+'*CLOS*';
 	data = "###"+local_ip+","+mac+","+rssi+";"

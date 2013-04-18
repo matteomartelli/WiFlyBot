@@ -23,6 +23,7 @@
 	  Time             Michael Margolis  http://www.arduino.cc/playground/uploads/Code/Time.zip
 	  WiFly            Roving Networks   www.rovingnetworks.com
 	  WiFlySerial	   Tom Waldock		 https://github.com/perezd/arduino-wifly-serial
+	  Timer			   Simon Monk		 https://github.com/JChristensen/Timer
 	  and to The Arduino Team.
 */
 
@@ -30,10 +31,11 @@
 #include <SoftwareSerial.h>
 #include <Streaming.h>
 #include <WiFlySerial.h>
+#include <Timer.h>
 #include "MemoryFree.h"
 
-#define ARDUINO_RX_PIN 7
-#define ARDUINO_TX_PIN 8
+#define ARDUINO_RX_PIN 6
+#define ARDUINO_TX_PIN 7
 #define BUFFER_SIZE 80
 
 #define IP_BUFFER_SIZE 16
@@ -41,6 +43,10 @@
 #define RSSI_BUFFER_SIZE 8
 
 #define N_ENDPOINTS 2
+
+#define N_SECS_CHECK 5
+#define LB_REQ 60
+#define SENSITIVITY -100
 
 String ssid = "ARDUINOS";
 String localIp = "10.42.1.11";
@@ -52,19 +58,37 @@ char buffer[BUFFER_SIZE],mac[MAC_BUFFER_SIZE], ip[IP_BUFFER_SIZE],
 
 char chMisc; 
 int endRead, startRead, sharps, commas, count, idx;
-int distance = -1;
+
+Timer t;
 
 /* Data of a wifi end point are stored here. */
 struct WiFiNode{
 	char ip[IP_BUFFER_SIZE]; 
 	char mac[MAC_BUFFER_SIZE];
-	int rssi;
+	short int rssi;
+	float lb;
+	short int direction;
 	bool empty;
 };
 
 WiFiNode endPoints[N_ENDPOINTS]; //An array of WiFiNodes
 
 WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
+
+//motor A connected between A01 and A02
+//motor B connected between B01 and B02
+
+int STBY = 10; //standby
+
+//Motor A
+int PWMA = 3; //Speed control 
+int AIN1 = 9; //Direction
+int AIN2 = 8; //Direction
+
+//Motor B
+int PWMB = 5; //Speed control
+int BIN1 = 11; //Direction
+int BIN2 = 12; //Direction
 
 int findNode(char *mac){
 	for(int i = 0; i < N_ENDPOINTS; i++){
@@ -122,6 +146,39 @@ int string2bytes(char *str, unsigned char *bytes, int nbytes){
 	return 0;
 }
 
+void move(int motor, int speed, int direction){
+//Move specific motor at speed and direction
+//motor: 0 for B 1 for A
+//speed: 0 is off, and 255 is full speed
+//direction: 0 clockwise, 1 counter-clockwise
+
+  digitalWrite(STBY, HIGH); //disable standby
+
+  boolean inPin1 = LOW;
+  boolean inPin2 = HIGH;
+
+  if(direction == 1){
+    inPin1 = HIGH;
+    inPin2 = LOW;
+  }
+
+  if(motor == 1){
+    digitalWrite(AIN1, inPin1);
+    digitalWrite(AIN2, inPin2);
+    analogWrite(PWMA, speed);
+  }else{
+    digitalWrite(BIN1, inPin1);
+    digitalWrite(BIN2, inPin2);
+    analogWrite(PWMB, speed);
+  }
+}
+
+void stop(){
+//enable standby  
+	Serial << F("stop") << endl;
+	digitalWrite(STBY, LOW); 
+}
+
 // Arduino Setup routine. TODO: move this in another file.
 void setup() {
 	Serial.begin(9600);
@@ -177,11 +234,28 @@ void setup() {
 	for(int i = 0; i < N_ENDPOINTS; i++){
 		memset(endPoints[i].ip, '\0', IP_BUFFER_SIZE);
 		memset(endPoints[i].mac, '\0', MAC_BUFFER_SIZE);
-		endPoints[i].rssi = -1;
+		endPoints[i].rssi = 1;
+		endPoints[i].lb = -1;
 		endPoints[i].empty = true;
 	}
 
+	/* Assuming that my sn is in the middle */
+	endPoints[0].direction = -1;
+	endPoints[1].direction = +1;
+	
 	resetFields();
+	
+	pinMode(STBY, OUTPUT);
+
+	pinMode(PWMA, OUTPUT);
+	pinMode(AIN1, OUTPUT);
+	pinMode(AIN2, OUTPUT);
+
+	pinMode(PWMB, OUTPUT);
+	pinMode(BIN1, OUTPUT);
+	pinMode(BIN2, OUTPUT);
+	
+	t.after(1000*N_SECS_CHECK, checkRobot);
 }
 	
 	
@@ -193,6 +267,7 @@ void setup() {
 
 	
 void loop() {
+	t.update(); //TODO: better move this in a timer interrupt as the while below can run for too much time.. 
 	while (wifi.available() && ((chMisc = wifi.read()) > -1)) {
 		
 		/* PKT FORMAT: ###IP,MAC,RSSI; */
@@ -254,22 +329,19 @@ void loop() {
 		/* If it comes here, it should have found the correct idx */
 		memcpy(endPoints[idx].ip, ip, strlen(ip)); 
 		memcpy(endPoints[idx].mac, mac, strlen(mac)); 
-		endPoints[idx].rssi = -(atoi(rssi));
+		endPoints[idx].rssi = atoi(rssi);
+		endPoints[idx].lb = endPoints[idx].rssi - SENSITIVITY;
 		endPoints[idx].empty = false;
 		
-		printDebug(F("STATISTICS"));
+		/*printDebug(F("STATISTICS"));
 		for(int i = 0; i < N_ENDPOINTS; i++){
-			Serial << F("IDX: ") << i << F(" IP: ") 
-				<< endPoints[i].ip << F(" MAC: ") 
-				<< endPoints[i].mac << F(" RSSI: ") 
-				<< endPoints[i].rssi << endl;
-		}
-		
-		/* Considering only the two nodes case */
-		if(!endPoints[0].empty && !endPoints[1].empty){
-			distance = abs(endPoints[0].rssi - endPoints[1].rssi); /* TODO: check this */
-			Serial << F("Absolute distance : ") << distance << endl;
-		}
+			Serial << F("IDX: ") << i 
+				<< F(" IP: ") << endPoints[i].ip 
+				<< F(" MAC: ") << endPoints[i].mac 
+				<< F(" RSSI: ") << endPoints[i].rssi
+				<< F(" LB: ") << endPoints[i].lb
+				<< F(" DIR: ") << endPoints[i].direction << endl;
+		}*/
 		
 		resetFields();
 	}
@@ -277,5 +349,64 @@ void loop() {
 	/* TODO: move the robot trying to decrease the avarage distance */
 	
 }
+int nChecks = 0;
+void checkRobot(){
+	Serial << F("check ") << nChecks << F(" starts") << endl;
+	float C = 0.00, R = 0.00;
+	bool skip = false;
+	
+	for(int i = 0; i < N_ENDPOINTS; i++){
+		if(endPoints[i].empty){
+			skip = true;
+			break;
+		}
+		
+		float F = calcForce(i);
+		R += F;
+		C = max(C, criticality(i));
+		
+		Serial << F("IDX: ") << i 
+				//<< F(" IP: ") << endPoints[i].ip 
+				//<< F(" MAC: ") << endPoints[i].mac 
+				<< F(" RSSI: ") << endPoints[i].rssi
+				<< F(" LB: ") << endPoints[i].lb
+				<< F(" FORCE: ") << F
+				<< F(" CRITICALITY: ") << criticality(i)
+				<< F(" DIR: ") << endPoints[i].direction << endl;
+	}
+	
+	Serial << F("Criticality: ") << C 
+		<< F(" Resultant force: ") << R << endl;
+	
+	if(C < (1 - 0.3) && !skip){ /* TODO What is the criticality bound at which I should move ? */
+		if(R > 0){
+			/* Move forward */
+			Serial << F("moving forward ...");
+			move(1, 60, 1); 
+			move(2, 60, 1);
+		}else{
+			/* Move backward */
+			Serial << F("moving backward ...");
+			move(1, 60, 0); 
+			move(2, 60, 0);
+		}
+		
 
+		/* TODO: move part */
+		delay(3000); //wait for robot positioning
+		stop();
+		
+	}	
+	
+	Serial << F("check ") << nChecks << F(" ends") << endl;
+	nChecks++;
+	t.after(1000*N_SECS_CHECK, checkRobot);
+}
 
+float calcForce(int idx){
+	return (sqrt(max(endPoints[idx].lb, LB_REQ)/min(endPoints[idx].lb, LB_REQ)) -1 )*endPoints[idx].direction;
+}
+
+float criticality(int idx){
+	return 1 - min(endPoints[idx].lb, LB_REQ)/LB_REQ;
+}
