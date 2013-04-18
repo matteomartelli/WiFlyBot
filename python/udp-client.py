@@ -31,16 +31,12 @@ from optparse import OptionParser
 def getRssi(interface, rMAC, useiw):
 	
 	if (useiw):
-		stations = commands.getoutput("iw dev "+interface+" station dump")
+		station = commands.getoutput("iw dev "+interface+" station get "+rMAC)
 		#TODO: error check (use directly MAC search from iw command. See man iw)
-		stations = stations.split()
-		found = False
-		for i in range(0, len(stations)):
-			if(found == False and stations[i] == "Station" and stations[i+1] == rMAC):
-				found = True
-			
-		if(found and stations[i] == "signal:" and i+1 <= len(stations)):
-			return stations[i+1]
+		station = station.split()
+		for i in range(0, len(station)):
+			if(station[i] == "signal:" and i+1 < len(station)):
+				return station[i+1]
 	else:
 	 	ret = commands.getoutput("echo -n $(cat /proc/net/wireless | grep '"+iface+"')") #TODO use this for broadcom interfaces
 		rssi = re.compile("\s+").split(ret)[3]
@@ -76,7 +72,7 @@ MAC_ADDR_LEN = 17
 
 #TODO CONVERT OPT SELECTION WITH OptionParser
 if len(sys.argv) < 5:
-	print "USAGE: "+sys.argv[0]+" interface remote_ip remote_port remote_MAC [power_difect]"
+	print "USAGE: "+sys.argv[0]+" interface remote_ip remote_port remote_MAC [--power-difect=difect] [--noiw]"
 	sys.exit();
 
 iface = sys.argv[1]

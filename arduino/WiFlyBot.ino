@@ -383,12 +383,12 @@ void checkRobot(){
 			/* Move forward */
 			Serial << F("moving forward ...");
 			move(1, 60, 1); 
-			move(2, 60, 1);
+			move(2, 100, 1);
 		}else{
 			/* Move backward */
 			Serial << F("moving backward ...");
 			move(1, 60, 0); 
-			move(2, 60, 0);
+			move(2, 100, 0);
 		}
 		
 
