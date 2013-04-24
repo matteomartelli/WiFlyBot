@@ -128,6 +128,6 @@ while True:
 	s.sendto(data, (remote_ip, remote_port))
 	if __debug__:
 		print "DEBUG: UDP packet sent:"+data
-	time.sleep(0.5)
+	time.sleep(1)
 	# close the socket
 	s.close()
