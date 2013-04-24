@@ -16,6 +16,8 @@
     You should have received a copy of the GNU General Public License
     along with WiFlyBot.  If not, see <http://www.gnu.org/licenses/>.
 */
+#ifndef MOTORS_H
+#define MOTORS_H
 
 /* Set the arduino pins to communicate with the motors controller */
 void motorSetup();
@@ -26,3 +28,5 @@ void move(int motor, int speed, int direction);
 
 /* Stop the motors */
 void stop();
+
+#endif

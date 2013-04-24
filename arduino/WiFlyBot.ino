@@ -26,29 +26,21 @@
 	  Timer			   Simon Monk		 https://github.com/JChristensen/Timer
 	  and to The Arduino Team.
 */
-
+//Libraries headers
 #include <Arduino.h>
 #include <SoftwareSerial.h>
 #include <Streaming.h>
 #include <WiFlySerial.h>
 #include <Timer.h>
+
+//Project headers
 #include "MemoryFree.h"
 #include "Motors.h"
 #include "Consts.h"
+#include "Types.h"
 #include "Utils.h"
+#include "Wifi.h"
 
-
-String ssid = "ARDUINOS";
-String localIp = "10.42.1.11";
-String localPort = "5005";
-String netMask = "255.255.0.0";
-
-char buffer[BUFFER_SIZE],mac[MAC_BUFFER_SIZE], ip[IP_BUFFER_SIZE], 
-	 rssi[RSSI_BUFFER_SIZE], *current;
-
-char chMisc; 
-int endRead, startRead, sharps, commas, count, idx;
-bool allEmpty = true;
 Timer t;
 
 /* The MAX Resultant force is the sum of the max forces of the two nodes,
@@ -56,104 +48,20 @@ Timer t;
 float maxResultant = 0;
 short int maxResultantDir = 0; //Randomly choosen
 
-/* Wifi end point data are stored here. */
-struct WiFiNode{
-	char ip[IP_BUFFER_SIZE]; 
-	char mac[MAC_BUFFER_SIZE];
-	short int rssi;
-	short int lb;
-	short int position; /* This will be replaced with GPS coordinates */
-	bool empty;
-};
+char mac[MAC_BUFFER_SIZE], ip[IP_BUFFER_SIZE], 
+	 rssi[RSSI_BUFFER_SIZE], *current;
 
-WiFiNode endPoints[N_ENDPOINTS]; //An array of WiFiNodes
+char chMisc; 
+int endRead, startRead, sharps, commas, count, idx;
+bool allEmpty = true;
 
-WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
-
-
-
-int findNode(char *mac){
-	for(int i = 0; i < N_ENDPOINTS; i++){
-		if(strcmp(endPoints[i].mac, mac) == 0) 
-			return i;
-	}
-	return -1;
-}
-	
-int findEmpty(){
-	for(int i = 0; i < N_ENDPOINTS; i++){
-		if(endPoints[i].empty) 
-			return i;
-	}
-	return -1;
-}
-
-/* Set and reset to zero/null the global variables used in the parsing process */
-void resetFields(){
-	endRead = startRead = sharps = commas = count = 0;
-	memset (ip,'\0',IP_BUFFER_SIZE);
-	memset (mac,'\0',MAC_BUFFER_SIZE);
-	memset (rssi,'\0',RSSI_BUFFER_SIZE);
-}	
-
-/* This functions just calls the respective SendCommand function of 
- * the WiFly Serial library. It is needed for using the string objects
- * in a more confortable way. */
-void sendCmd(WiFlySerial *wifi, String cmd){
-	wifi->SendCommand(&(cmd[0]), ">",buffer, BUFFER_SIZE);
-}
 
 // Arduino Setup routine. TODO: move this in another file.
 void setup() {
 	Serial.begin(9600);
-	Serial << F("Arduino mobile wifi") << endl
-		<< F("Arduino Rx Pin (connect to WiFly Tx):") << ARDUINO_RX_PIN << endl
-		<< F("Arduino Tx Pin (connect to WiFly Rx):") << ARDUINO_TX_PIN << endl
-		<< F("RAM: ") << freeMemory();
-
-	wifi.begin();
-
-	Serial << F("Started WiFly") << endl
-		<< F("WiFly Lib Version: ") << wifi.getLibraryVersion(buffer, BUFFER_SIZE) << endl
-		<< F("Wifi MAC: ") << wifi.getMAC(buffer, BUFFER_SIZE) << endl;
-
-	/* Create the ad-hoc connection */
-	//sendCmd(&wifi, "scan");
-	sendCmd(&wifi, "set wlan join 4"); //Ad-hoc mode (change to 1 for joining an existing network)
-	sendCmd(&wifi, "set wlan ssid "+ssid);
-	//sendCmd(&wifi, "set join "+ssid); //For join an existing network
-	sendCmd(&wifi, "set wlan chan 1");
-	sendCmd(&wifi, "set ip dhcp 0");
-	sendCmd(&wifi, "set ip address "+localIp);
 	
-	sendCmd(&wifi, "set ip netmask "+netMask);
-	
-	sendCmd(&wifi, "set ip proto 3");
-	sendCmd(&wifi, "set ip local "+localPort);
-	sendCmd(&wifi, "save");
-	sendCmd(&wifi, "reboot");
-
-	Serial << F("Initial WiFi Settings :") << endl  
-		<< F("IP: ") << wifi.getIP(buffer, BUFFER_SIZE) << endl
-		<< F("Netmask: ") << wifi.getNetMask(buffer, BUFFER_SIZE) << endl
-		<< F("Gateway: ") << wifi.getGateway(buffer, BUFFER_SIZE) << endl
-		<< F("DNS: ") << wifi.getDNS(buffer, BUFFER_SIZE) << endl
-		<< F("battery: ") <<  wifi.getBattery(buffer, BUFFER_SIZE) << endl;
-	memset (buffer,'\0',BUFFER_SIZE);
-
-	// close any open connections
-	wifi.closeConnection();
-	
-	Serial.println(F("Command mode exit"));
-	
-	wifi.exitCommandMode();
-	
-	if(wifi.isInCommandMode())
-		errorPanic(F("Can't exit from command mode"));
-	
-	Serial << F("Listening on port ") << localPort << endl;
-	
-	
+	wifiSetup();
+	resetFields();
 	/* TODO: structs initialization */
 	for(int i = 0; i < N_ENDPOINTS; i++){
 		memset(endPoints[i].ip, '\0', IP_BUFFER_SIZE);
@@ -163,11 +71,9 @@ void setup() {
 		endPoints[i].empty = true;
 	}
 
-	/* Assuming that my sn is in the middle */
+	/* Assuming that my STEM-NODE is in the middle */
 	endPoints[0].position = -1; /* Rear */
 	endPoints[1].position = +1; /* Front */
-	
-	resetFields();
 	
 	/* Setup the motors pins */
 	motorSetup();
@@ -178,7 +84,6 @@ void setup() {
 		<< F("Requested Link Budget: ") << LB_REQ << endl
 		<< F("Node Sensitivity: ") << SENSITIVITY << endl
 		<< F("Max LB: ") << MAX_LB << F(" Min LB: ") << MIN_LB << endl;
-	memset (buffer,'\0',BUFFER_SIZE);
 }
 	
 	
@@ -188,9 +93,17 @@ void setup() {
 	 * 		the here client stored informations.
 	 *    Or better handling the packets retreival there? Can I handle WiFly Serial IO interrupt?  */ 
 
-	
+/* Set and reset to zero/null the global variables used in the parsing process */
+void resetFields(){
+	endRead = startRead = sharps = commas = count = 0;
+	memset (ip,'\0',IP_BUFFER_SIZE);
+	memset (mac,'\0',MAC_BUFFER_SIZE);
+	memset (rssi,'\0',RSSI_BUFFER_SIZE);
+}	
+
 void loop() {
 	t.update(); //TODO: better move this in a timer interrupt as the while below can run for too much time.. 
+	
 	while (wifi.available() && ((chMisc = wifi.read()) > -1)) {
 		
 		/* PKT FORMAT: ###IP,MAC,RSSI; */
@@ -207,6 +120,7 @@ void loop() {
 		if(chMisc == ';'){
 			endRead = 1;
 			startRead = 0;
+			break;
 		}
 		
 		if(startRead == 1){
@@ -227,7 +141,7 @@ void loop() {
 			}
 			if(commas == 1){
 				/* MAC CASE */
-				if(count >= MAC_BUFFER_SIZE)
+				if(count >= MAC_BUFFER_SIZE) 
 					continue;
 				current = mac;
 				mac[count++] = chMisc;
@@ -242,7 +156,7 @@ void loop() {
 		}		
 	}
 	if(endRead){
-				
+		//TODO: check buffers sizes. If they're wrong ignore the packet
 		if((idx = findNode(mac)) != -1){ //mac matches
 			if( strcmp(endPoints[idx].ip, ip) != 0) //ip doesn't match
 				printDebug(F("Ip has changed")); //TODO: what here?
@@ -280,8 +194,9 @@ void loop() {
 		if(endPoints[idx].rssi < SENSITIVITY) 
 			endPoints[idx].rssi = SENSITIVITY;
 		endPoints[idx].lb = endPoints[idx].rssi - SENSITIVITY;
-		
-		
+		if (endPoints[idx].lb > MAX_LB) endPoints[idx].lb = MAX_LB;
+		if (endPoints[idx].lb < MIN_LB) endPoints[idx].lb = MIN_LB;
+
 		resetFields();
 	}
 	
@@ -355,12 +270,12 @@ float calcForce(int idx){
 	short int forceDirection;
 
 	if (endPoints[idx].lb > LB_REQ){
-		if (endPoints[idx].lb > MAX_LB) endPoints[idx].lb = MAX_LB;
+	
 		/* The force is REPULSIVE in this case, thus the direction of the force
 		 * must be opposite to the node position */
 		forceDirection = -(endPoints[idx].position);
 	}else if (endPoints[idx].lb < LB_REQ){
-		if (endPoints[idx].lb < MIN_LB) endPoints[idx].lb = endPoints[idx].lb = MIN_LB;
+		
 		/* The force is ATTRACTIVE in this case, thus the direction of the force
 		 * must be opposite to the node position */
 		forceDirection = endPoints[idx].position;

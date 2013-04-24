@@ -16,13 +16,25 @@
     You should have received a copy of the GNU General Public License
     along with WiFlyBot.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef UTILS_H
-#define UTILS_H
+/* Wifi end point data are stored here. */
+#ifndef WIFLY_H
+#define WIFLY_H
 
-/* Print an error message and panic! */
-void errorPanic(__FlashStringHelper *err);
+#include <WiFlySerial.h>
 
-/* Print a debug message */
-void printDebug(__FlashStringHelper *msg);
+#include "Types.h"
+#include "Consts.h"
+
+
+extern WiFiNode endPoints[N_ENDPOINTS]; //An array of WiFiNodes
+extern WiFlySerial wifi;
+
+extern char buffer[BUFFER_SIZE];
+ 
+int findNode(char *mac);
+int findEmpty();
+void wifiSetup();
+void sendCmd(WiFlySerial *wifi, String cmd);
+void wifiSetup();
 
 #endif

@@ -16,13 +16,18 @@
     You should have received a copy of the GNU General Public License
     along with WiFlyBot.  If not, see <http://www.gnu.org/licenses/>.
 */
-#ifndef UTILS_H
-#define UTILS_H
+#ifndef TYPES_H
+#define TYPES_H
 
-/* Print an error message and panic! */
-void errorPanic(__FlashStringHelper *err);
+#include "Consts.h"
 
-/* Print a debug message */
-void printDebug(__FlashStringHelper *msg);
+typedef struct WiFiNode{
+	char ip[IP_BUFFER_SIZE]; 
+	char mac[MAC_BUFFER_SIZE];
+	short int rssi;
+	short int lb;
+	short int position; /* This will be replaced with GPS coordinates */
+	bool empty;
+}WiFiNode;
 
 #endif
