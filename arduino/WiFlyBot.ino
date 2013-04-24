@@ -33,26 +33,9 @@
 #include <WiFlySerial.h>
 #include <Timer.h>
 #include "MemoryFree.h"
+#include "Motors.h"
+#include "consts.h"
 
-#define ARDUINO_RX_PIN 6
-#define ARDUINO_TX_PIN 7
-#define BUFFER_SIZE 80
-
-#define IP_BUFFER_SIZE 16
-#define MAC_BUFFER_SIZE 16
-#define RSSI_BUFFER_SIZE 8
-
-#define N_ENDPOINTS 2
-
-/* ROBOT FIELDS */
-#define N_SECS_CHECK 2
-#define LB_REQ		50
-#define SENSITIVITY 	-83 //from wifly rn171 manual
-#define MAX_RSSI 		-5
-#define MIN_RSSI		-75
-#define MAX_LB  		MAX_RSSI - SENSITIVITY
-#define MIN_LB 		MIN_RSSI - SENSITIVITY
-#define ATTENUATION 	1
 
 String ssid = "ARDUINOS";
 String localIp = "10.42.1.11";
@@ -86,20 +69,7 @@ WiFiNode endPoints[N_ENDPOINTS]; //An array of WiFiNodes
 
 WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
 
-//motor A connected between A01 and A02
-//motor B connected between B01 and B02
 
-int STBY = 10; //standby
-
-//Motor A
-int PWMA = 3; //Speed control 
-int AIN1 = 9; //Direction
-int AIN2 = 8; //Direction
-
-//Motor B
-int PWMB = 5; //Speed control
-int BIN1 = 11; //Direction
-int BIN2 = 12; //Direction
 
 int findNode(char *mac){
 	for(int i = 0; i < N_ENDPOINTS; i++){
@@ -132,10 +102,6 @@ void sendCmd(WiFlySerial *wifi, String cmd){
 	wifi->SendCommand(&(cmd[0]), ">",buffer, BUFFER_SIZE);
 }
 
-/*void updateWiFiNode(struct WiFiNode *node){
-	Serial << F("IP: ") << node->ip << F(" MAC: ") << node->mac << F(" RSSI: ") << node->rssi << endl;
-}*/
-
 void errorPanic(__FlashStringHelper *err){
 	Serial.print(F("ERROR PANIC :"));
 	Serial.println(err);
@@ -155,39 +121,6 @@ int string2bytes(char *str, unsigned char *bytes, int nbytes){
 		pos += 2;
 	}
 	return 0;
-}
-
-void move(int motor, int speed, int direction){
-//Move specific motor at speed and direction
-//motor: 0 for B 1 for A
-//speed: 0 is off, and 255 is full speed
-//direction: 0 clockwise, 1 counter-clockwise
-
-  digitalWrite(STBY, HIGH); //disable standby
-
-  boolean inPin1 = LOW;
-  boolean inPin2 = HIGH;
-
-  if(direction == 1){
-    inPin1 = HIGH;
-    inPin2 = LOW;
-  }
-
-  if(motor == 1){
-    digitalWrite(AIN1, inPin1);
-    digitalWrite(AIN2, inPin2);
-    analogWrite(PWMA, speed);
-  }else{
-    digitalWrite(BIN1, inPin1);
-    digitalWrite(BIN2, inPin2);
-    analogWrite(PWMB, speed);
-  }
-}
-
-void stop(){
-//enable standby  
-	Serial << F("stop") << endl;
-	digitalWrite(STBY, LOW); 
 }
 
 // Arduino Setup routine. TODO: move this in another file.
@@ -256,15 +189,8 @@ void setup() {
 	
 	resetFields();
 	
-	pinMode(STBY, OUTPUT);
-
-	pinMode(PWMA, OUTPUT);
-	pinMode(AIN1, OUTPUT);
-	pinMode(AIN2, OUTPUT);
-
-	pinMode(PWMB, OUTPUT);
-	pinMode(BIN1, OUTPUT);
-	pinMode(BIN2, OUTPUT);
+	/* Setup the motors pins */
+	motorSetup();
 	
 	t.after(1000*N_SECS_CHECK, checkRobot);
 	
