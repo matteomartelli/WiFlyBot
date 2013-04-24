@@ -17,12 +17,15 @@
     along with WiFlyBot.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Set the arduino pins to communicate with the motors controller */
-void motorSetup();
+#include <Streaming.h>
 
-/* Move the motors by their id. 
- * Speed and direction (0 clockwise, 1 counter-clockwise) must be specified too. */
-void move(int motor, int speed, int direction);
+void errorPanic(__FlashStringHelper *err){
+	Serial.print(F("ERROR PANIC :"));
+	Serial.println(err);
+	while(1);
+}
 
-/* Stop the motors */
-void stop();
+void printDebug(__FlashStringHelper *msg){
+	Serial.print(F("DEBUG: "));
+	Serial.println(msg);
+}

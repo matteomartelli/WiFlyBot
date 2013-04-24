@@ -17,12 +17,8 @@
     along with WiFlyBot.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/* Set the arduino pins to communicate with the motors controller */
-void motorSetup();
+/* Print an error message and panic! */
+void errorPanic(__FlashStringHelper *err);
 
-/* Move the motors by their id. 
- * Speed and direction (0 clockwise, 1 counter-clockwise) must be specified too. */
-void move(int motor, int speed, int direction);
-
-/* Stop the motors */
-void stop();
+/* Print a debug message */
+void printDebug(__FlashStringHelper *msg);

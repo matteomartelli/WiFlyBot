@@ -34,7 +34,8 @@
 #include <Timer.h>
 #include "MemoryFree.h"
 #include "Motors.h"
-#include "consts.h"
+#include "Consts.h"
+#include "Utils.h"
 
 
 String ssid = "ARDUINOS";
@@ -100,27 +101,6 @@ void resetFields(){
  * in a more confortable way. */
 void sendCmd(WiFlySerial *wifi, String cmd){
 	wifi->SendCommand(&(cmd[0]), ">",buffer, BUFFER_SIZE);
-}
-
-void errorPanic(__FlashStringHelper *err){
-	Serial.print(F("ERROR PANIC :"));
-	Serial.println(err);
-	while(1);
-}
-
-void printDebug(__FlashStringHelper *msg){
-	Serial.print(F("DEBUG: "));
-	Serial.println(msg);
-}
-
-int string2bytes(char *str, unsigned char *bytes, int nbytes){
-	char *pos = str;
-	int count = 0;
-	for(count = 0; count < nbytes; count++) {
-		sscanf(pos, "%2hhx", &bytes[count]);
-		pos += 2;
-	}
-	return 0;
 }
 
 // Arduino Setup routine. TODO: move this in another file.
@@ -265,7 +245,7 @@ void loop() {
 				
 		if((idx = findNode(mac)) != -1){ //mac matches
 			if( strcmp(endPoints[idx].ip, ip) != 0) //ip doesn't match
-				errorPanic(F("Ip has changed")); //TODO: what here?
+				printDebug(F("Ip has changed")); //TODO: what here?
 		}else if ((idx = findEmpty()) == -1){
 			printDebug(F("No matches and no empty space")); //TODO: What here?;
 			return; //Skip the following: error condition
@@ -304,11 +284,6 @@ void loop() {
 		
 		resetFields();
 	}
-	
-	/* TODO: move the robot trying to decrease the avarage distance */
-	
-	
-	
 	
 }
 
