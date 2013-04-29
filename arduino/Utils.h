@@ -25,4 +25,7 @@ void errorPanic(__FlashStringHelper *err);
 /* Print a debug message */
 void printDebug(__FlashStringHelper *msg);
 
+/* Check if the ip string is correctly formatted */
+bool checkIP(char *ip);
+
 #endif

@@ -18,6 +18,7 @@
 */
 
 #include <Streaming.h>
+#include "Consts.h"
 
 void errorPanic(__FlashStringHelper *err){
 	Serial.print(F("ERROR PANIC :"));
@@ -28,4 +29,25 @@ void errorPanic(__FlashStringHelper *err){
 void printDebug(__FlashStringHelper *msg){
 	Serial.print(F("DEBUG: "));
 	Serial.println(msg);
+}
+
+/* Check if the ip string is correctly formatted */
+bool checkIP(char *ip){
+	short int i, dots = 0;
+	int len;
+	
+	if((len = strlen(ip)) < MIN_IP_STR_LEN)
+		return false;
+
+	for(i = 0; i < len; i++){
+		if (ip[i] == '.')
+			/* If the ith character is a dot between two non-dot characters, increment dots counter,
+			 * otherwise there's something wrong with the string. The error is checked below */ 
+			if(i > 0 && i < len - 1 && ip[i - 1] != '.' && ip[i + 1] != '.')
+				dots++;
+	}
+	if(dots != IP_NDOTS)
+		return false;
+	else
+		return true;
 }

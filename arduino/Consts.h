@@ -9,6 +9,10 @@
 #define MAC_BUFFER_SIZE 16
 #define RSSI_BUFFER_SIZE 8
 
+#define MAC_STR_LEN	12  //a0b1c2d3e4f5 (no colons format)
+#define MIN_IP_STR_LEN 7 //0.0.0.0 (considering just ipv4)
+#define IP_NDOTS	3
+
 #define N_ENDPOINTS 2
 
 /* STEM-NODE FIELDS */

@@ -156,48 +156,50 @@ void loop() {
 		}		
 	}
 	if(endRead){
-		//TODO: check buffers sizes. If they're wrong ignore the packet
-		if((idx = findNode(mac)) != -1){ //mac matches
-			if( strcmp(endPoints[idx].ip, ip) != 0) //ip doesn't match
-				printDebug(F("Ip has changed")); //TODO: what here?
-		}else if ((idx = findEmpty()) == -1){
-			printDebug(F("No matches and no empty space")); //TODO: What here?;
-			return; //Skip the following: error condition
-		}
+		short int rssint; //integer rssi 
+		if( (strlen(mac) == MAC_STR_LEN) && (checkIP(ip)) && ((rssint = atoi(rssi)) < 1) ){
 		
-		if(endPoints[idx].empty){
-			endPoints[idx].empty = false;
-			allEmpty = false;
-			
-			/* Calculate the max resultant according to the number of nodes connected.
-			 * The maxForce direction is pointing to a node choosed randomly (the first checked).
-			 * It starts summing the attractive maxForce according to the first node direction,
-			 * if other nodes with the same direction are connected it sums again 
-			 * the attractive maxForce, if the direction is opposite the repulsive maxForce */  
-			if(maxResultantDir == 0){
-				/* This is computed only once */
-				maxResultantDir = endPoints[idx].position;
+			if((idx = findNode(mac)) != -1){ //mac matches
+				if( strcmp(endPoints[idx].ip, ip) != 0) //ip doesn't match
+					printDebug(F("Ip has changed")); //TODO: what here?
+			}else if ((idx = findEmpty()) == -1){
+				printDebug(F("No matches and no empty space")); //TODO: What here?;
 			}
-			if(maxResultantDir == endPoints[idx].position)
-				maxResultant += sqrt(((float)LB_REQ) / ((float)MIN_LB)) - 1; //Attractive
-			else
-				maxResultant += sqrt(((float)MAX_LB) / ((float)LB_REQ)) - 1; //Repulsive
-		}
-		
 			
-		/* If it comes here, it should have found the correct idx */
-		memcpy(endPoints[idx].ip, ip, strlen(ip)); 
-		memcpy(endPoints[idx].mac, mac, strlen(mac)); 
-		endPoints[idx].rssi = atoi(rssi);
-		
-		/* LINK BUDGET calculation */
-		if(endPoints[idx].rssi < SENSITIVITY) 
-			endPoints[idx].rssi = SENSITIVITY;
-		endPoints[idx].lb = endPoints[idx].rssi - SENSITIVITY;
-		if (endPoints[idx].lb > MAX_LB) endPoints[idx].lb = MAX_LB;
-		if (endPoints[idx].lb < MIN_LB) endPoints[idx].lb = MIN_LB;
+			if(endPoints[idx].empty){
+				endPoints[idx].empty = false;
+				allEmpty = false;
+				
+				/* Calculate the max resultant according to the number of nodes connected.
+				 * The maxForce direction is pointing to a node choosed randomly (the first checked).
+				 * It starts summing the attractive maxForce according to the first node direction,
+				 * if other nodes with the same direction are connected it sums again 
+				 * the attractive maxForce, if the direction is opposite the repulsive maxForce */  
+				if(maxResultantDir == 0){
+					/* This is computed only once */
+					maxResultantDir = endPoints[idx].position;
+				}
+				if(maxResultantDir == endPoints[idx].position)
+					maxResultant += sqrt(((float)LB_REQ) / ((float)MIN_LB)) - 1; //Attractive
+				else
+					maxResultant += sqrt(((float)MAX_LB) / ((float)LB_REQ)) - 1; //Repulsive
+			}
+			
+				
+			/* If it comes here, it should have found the correct idx */
+			memcpy(endPoints[idx].ip, ip, strlen(ip)); 
+			memcpy(endPoints[idx].mac, mac, strlen(mac)); 
+			endPoints[idx].rssi = rssint;
+			
+			/* LINK BUDGET calculation */
+			if(endPoints[idx].rssi < SENSITIVITY) 
+				endPoints[idx].rssi = SENSITIVITY;
+			endPoints[idx].lb = endPoints[idx].rssi - SENSITIVITY;
+			if (endPoints[idx].lb > MAX_LB) endPoints[idx].lb = MAX_LB;
+			if (endPoints[idx].lb < MIN_LB) endPoints[idx].lb = MIN_LB;
 
-		resetFields();
+			resetFields();
+		}
 	}
 	
 }
