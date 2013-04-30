@@ -28,7 +28,8 @@
 String ssid = "ARDUINOS";
 String localIp = "10.42.1.11";
 String localPort = "5005";
-String netMask = "255.255.0.0";
+String netMask = "255.255.255.0";
+//String gateway = "10.42.1.4";
 
 WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
 
@@ -82,7 +83,9 @@ void wifiSetup(){
 	
 	sendCmd(&wifi, "set ip netmask "+netMask);
 	
-	sendCmd(&wifi, "set ip proto 3");
+	//sendCmd(&wifi, "set ip gateway "+gateway);
+	
+	sendCmd(&wifi, "set ip proto 3"); //TCP + UDP
 	sendCmd(&wifi, "set ip local "+localPort);
 	sendCmd(&wifi, "save");
 	sendCmd(&wifi, "reboot");

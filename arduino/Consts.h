@@ -19,7 +19,7 @@
 #define N_SECS_CHECK 2
 #define LB_REQ		50
 #define SENSITIVITY 	-83 //from wifly rn171 manual
-#define MAX_RSSI 		-5
+#define MAX_RSSI 		-10
 #define MIN_RSSI		-75
 #define MAX_LB  		MAX_RSSI - SENSITIVITY
 #define MIN_LB 		MIN_RSSI - SENSITIVITY

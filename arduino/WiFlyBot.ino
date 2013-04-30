@@ -101,13 +101,47 @@ void resetFields(){
 	memset (rssi,'\0',RSSI_BUFFER_SIZE);
 }	
 
+int read_line( char *line ){
+  int pos = 0;
+  char c = '\0';
+  while( c != '\n' ){
+    if( wifi.available() ){
+      c = wifi.read();
+      line[pos++] = c;
+    }
+  }
+  line[pos] = '\0';
+  return pos;
+}
+
+
+char *cmdOpen = "OPEN*";
+char *cmdClose = "CLOS*";
+bool enterParse = false;
+char str[8];
 void loop() {
 	t.update(); //TODO: better move this in a timer interrupt as the while below can run for too much time.. 
-	
+	int i = 0;
+	memset(str, '\0', 8);
 	while (wifi.available() && ((chMisc = wifi.read()) > -1)) {
 		
 		/* PKT FORMAT: ###IP,MAC,RSSI; */
-		
+		//Serial << chMisc;
+		if(enterParse){
+			if(i < 5){
+				Serial << F("B") << i;
+				str[i++] = chMisc;
+				if (i == 5){Serial << endl; break;}
+				else continue;
+			}
+		}
+
+		if(chMisc == '*'){
+			Serial << F("E") << endl;
+			enterParse = true;
+			continue;
+		}
+
 		if(sharps == 3){
 			startRead = 1;
 			sharps = 0;
@@ -155,6 +189,45 @@ void loop() {
 			}
 		}		
 	}
+	
+	if(enterParse){
+		enterParse = false;
+		Serial << F("STR: x") << str << F("x ")<<endl;
+		if(strcmp(str, cmdOpen) == 0){
+			//Open
+			sendCmd(&wifi, "set ip proto 2");
+			wifi.exitCommandMode();
+			
+			Serial.println("Connection opened");
+			
+			char cmd[128], line[128];
+			//read_line( cmd );
+			//Serial.println( cmd );
+			/*while( read_line( line ) > 1 ){
+				Serial.print( line );
+				if( line[0] == '\r' )
+					break;
+			}*/
+			char *data = "<html><body>welcome!</body></html>\n";
+			
+			wifi.print( "HTTP/1.1 200 OK\r\n");
+			wifi.print( "Content-Type: text/html\r\n" );
+			wifi.print( "Content-Length: " );
+			wifi.print( strlen( data )+1 );
+			wifi.print( "\r\n" );
+			wifi.print( "Connection: Close\r\n" );
+			wifi.print( "\r\n" );
+			wifi.print( data );
+			wifi.write( (byte)0 );
+		}
+		else if(strcmp(str, cmdClose) == 0){
+			//Close
+			Serial.println("Connection closed");
+			sendCmd(&wifi, "set ip proto 3");
+			wifi.exitCommandMode();
+		} 
+	}
+	
 	if(endRead){
 		short int rssint; //integer rssi 
 		if( (strlen(mac) == MAC_STR_LEN) && (checkIP(ip)) && ((rssint = atoi(rssi)) < 1) ){
