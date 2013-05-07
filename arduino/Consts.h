@@ -16,7 +16,8 @@
 #define N_ENDPOINTS 2
 
 /* STEM-NODE FIELDS */
-#define N_SECS_CHECK 2
+#define N_SECS_HTML_REFRESH 6
+#define N_SECS_ROBOT_CHECK 3
 #define LB_REQ		50
 #define SENSITIVITY 	-83 //from wifly rn171 manual
 #define MAX_RSSI 		-10
@@ -24,5 +25,7 @@
 #define MAX_LB  		MAX_RSSI - SENSITIVITY
 #define MIN_LB 		MIN_RSSI - SENSITIVITY
 #define ATTENUATION 	1
+
+
 
 #endif

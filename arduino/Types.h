@@ -27,6 +27,7 @@ typedef struct WiFiNode{
 	short int rssi;
 	short int lb;
 	short int position; /* This will be replaced with GPS coordinates */
+	float force;
 	bool empty;
 }WiFiNode;
 

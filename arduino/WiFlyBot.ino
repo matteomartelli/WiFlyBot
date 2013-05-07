@@ -54,8 +54,8 @@ char mac[MAC_BUFFER_SIZE], ip[IP_BUFFER_SIZE],
 char chMisc; 
 int endRead, startRead, sharps, commas, count, idx;
 bool allEmpty = true;
-
-
+float C = 0.00, R = 0.00, RNorm = 0.00, gamma = 0.00, motionProbability = 0.00, randNum = 0.00, speed = 0.00;
+short int lastMove = -1;
 // Arduino Setup routine. TODO: move this in another file.
 void setup() {
 	Serial.begin(9600);
@@ -68,6 +68,7 @@ void setup() {
 		memset(endPoints[i].mac, '\0', MAC_BUFFER_SIZE);
 		endPoints[i].rssi = 1;
 		endPoints[i].lb = -1;
+		endPoints[i].force = 0;
 		endPoints[i].empty = true;
 	}
 
@@ -78,7 +79,7 @@ void setup() {
 	/* Setup the motors pins */
 	motorSetup();
 	
-	t.after(1000*N_SECS_CHECK, checkRobot);
+	t.after(1000*N_SECS_ROBOT_CHECK, checkRobot);
 	
 	Serial << F("ROBOT FIELDS: ") << endl
 		<< F("Requested Link Budget: ") << LB_REQ << endl
@@ -200,7 +201,9 @@ void loop() {
 			
 			Serial.println("Connection opened");
 			
-			char cmd[128], line[128];
+			//char cmd[128], line[128];
+			
+			//while(wifi.available());
 			//read_line( cmd );
 			//Serial.println( cmd );
 			/*while( read_line( line ) > 1 ){
@@ -208,23 +211,67 @@ void loop() {
 				if( line[0] == '\r' )
 					break;
 			}*/
-			char *data = "<html><body>welcome!</body></html>\n";
-			
+			/*char *data = "<html><body>welcome!</body></html>\n";*/
 			wifi.print( "HTTP/1.1 200 OK\r\n");
 			wifi.print( "Content-Type: text/html\r\n" );
 			wifi.print( "Content-Length: " );
-			wifi.print( strlen( data )+1 );
-			wifi.print( "\r\n" );
+			wifi.print( 1000 ); //TODO: how much here?
+			
 			wifi.print( "Connection: Close\r\n" );
 			wifi.print( "\r\n" );
-			wifi.print( data );
-			wifi.write( (byte)0 );
+			
+			//wifi << F("<HTML>ciao");
+			
+			wifi << F("<HTML><META HTTP-EQUIV=\"REFRESH\" CONTENT=\"") << N_SECS_HTML_REFRESH << F("\">")
+					<< F("<P>LB Required: ") << LB_REQ
+					<< F(" | Sensitivity: ") << SENSITIVITY
+					<< F(" | MAX_LB: ") << MAX_LB
+					<< F(" | MIN_LB: ") << MIN_LB
+					<< F("</P>") << endl;
+
+			/*char forceStr[5]; TODO: store the force in the WiflyNode
+			itoa(F, forceStr, 5);*/
+			if (!allEmpty){
+				for(int i = 0; i < N_ENDPOINTS; i++){
+					if(endPoints[i].empty) 
+						continue;
+					
+					wifi << F("<TABLE BORDER=\"1\"><TR><TH>ID</TH><TH>IP</TH><TH>MAC</TH><TH>RSSI</TH><TH>LB</TH><TH>FORCE</TH><TH>POS</TH></TR>")
+							<< F("<TR><TD>") << i 
+							<< F("</TD><TD>") << endPoints[i].ip
+							<< F("</TD><TD>") << endPoints[i].mac
+							<< F("</TD><TD>") << endPoints[i].rssi 
+							<< F("</TD><TD>") << endPoints[i].lb
+							<< F("</TD><TD>") << endPoints[i].force
+							<< F("</TD><TD>") << endPoints[i].position
+							<< F("</TR></TABLE>") << endl;
+				}
+				wifi << F("<P> Max Resultant: ") << maxResultant /*<< F("Criticality: ") << C */ << F(" | R: ") << R << (" | RNorm: " ) << RNorm 
+					<< F ("</P><P>Gamma: ") << gamma << F(" | Motion Probability: ") << motionProbability << endl
+					<< F (" | Random: ") << randNum << 
+				if(lastMove > -1){
+					if(lastMove == 1)
+						wifi << F(" | Last Move: FORWARD");
+					if(lastMove == 0)
+						wifi << F(" | Last Move: BACKWARD");
+					else wifi << F("MOVE ERROR");
+					
+					wifi << F(" | speed: ") << speed;
+				}else
+					wifi << F(" | Last Move: STATIONARY");
+				wifi << F("</P>"); 
+			}
+			wifi << "</HTML>\r\n\r\n";
+			for(int i = 0; i < 1000; i++) //TODO: Very ugly workaround...find a better way!!!
+				wifi.write( (byte)0 );
+				
+			sendCmd(&wifi, "set ip proto 3");
+			wifi.exitCommandMode();
 		}
 		else if(strcmp(str, cmdClose) == 0){
 			//Close
 			Serial.println("Connection closed");
-			sendCmd(&wifi, "set ip proto 3");
-			wifi.exitCommandMode();
+			
 		} 
 	}
 	
@@ -277,56 +324,52 @@ void loop() {
 	
 }
 
-void checkRobot(){
-	float C = 0.00, R = 0.00, RNorm = 0.00, gamma = 0.00, motionProbability = 0.00, random = 0.00;
+//float C = 0.00, R = 0.00, RNorm = 0.00, gamma = 0.00, motionProbability = 0.00, randNum = 0.00, speed = 0.00;
+//short int lastMove = -1;
+void checkRobot(){ //TODO: Move this in a timer interrupt routine
+	C = 0.00, R = 0.00, RNorm = 0.00, gamma = 0.00, motionProbability = 0.00, randNum = 0.00, speed = 0.00;
 	if(!allEmpty){
 		Serial << F("_______________________________________________") << endl;
+		
 		int nNodes = 0;
 		for(int i = 0; i < N_ENDPOINTS; i++){
 			
 			if(endPoints[i].empty) 
 				continue; //Skip the empty nodes
 			
-			float F = calcForce(i);
-			R += F;
-			C = max(C, criticality(i));
+			endPoints[i].force = calcForce(i);
+			R += endPoints[i].force;
+			//C = max(C, criticality(i)); TODO: not used for now
 			
-			//TODO: print this as a html page over http
-			Serial << F("IDX: ") << i 
-					//<< F(" IP: ") << endPoints[i].ip 
-					//<< F(" MAC: ") << endPoints[i].mac 
-					<< F(" RSSI: ") << endPoints[i].rssi
-					<< F(" LB: ") << endPoints[i].lb
-					<< F(" FORCE: ") << F
-					<< F(" CRITICALITY: ") << criticality(i)
-					<< F(" POS: ") << endPoints[i].position << endl;
+			
 		}
-		
 		/* The move probability is proportional to the RNorm and decreases with a high criticality */
 		RNorm = fabs(R)/maxResultant;
 		gamma = ((float)ATTENUATION) / (1 /* Don't consider criticality for now - C */);
 		motionProbability = pow(RNorm, gamma); 
 		int r = rand() % 100 + 1;
-		random = ((float)r) / 100;
+		randNum = ((float)r) / 100;
 		
 		Serial << F("Max Resultant: ") << maxResultant /*<< F("Criticality: ") << C */ << F(" R: ") << R << (" RNorm: " ) << RNorm << endl
 			<< F ("Gamma: ") << gamma << F(" Motion Probability: ") << motionProbability << endl
-			<< F ("Random: ") << random << endl;
+			<< F ("Random: ") << randNum << endl;
 		
-		float speed = RNorm*250 + 55;
+		speed = RNorm*250 + 55;
 		
 		/* TODO: Calculate R_NORM, p with a choosen ATTENUATION, get a random number, if random < p move otherwise don't move */
-		if(random < motionProbability){ /* TODO What is the criticality bound at which I should move ? */
+		if(randNum < motionProbability){ /* TODO What is the criticality bound at which I should move ? */
 		
 			if(R > 0 && speed >= 55){
 				/* Move forward */
+				lastMove = 1;
 				Serial << F("moving forward with speed ") << speed << endl;
-				move(1, speed - 20, 1); /* TODO: check temp motor defect */
+				move(1, speed, 1); /* TODO: check temp motor defect */
 				move(2, speed, 1);
 			}else if (R < 0 && speed >= 55){
 				/* Move backward */
+				lastMove = 0;
 				Serial << F("moving backward with speed ") << speed << endl;
-				move(1, speed - 20, 0); /* TODO: check temp motor defect */
+				move(1, speed, 0); /* TODO: check temp motor defect */
 				move(2, speed, 0);
 			}else{
 				Serial << F("Stop not enough speed") << endl;
@@ -334,11 +377,14 @@ void checkRobot(){
 			}
 		}else{
 			Serial << F("Stop, too less probability") << endl;
+			lastMove = -1;
 			stop();
 		}  
+		
+		
 		Serial << F("_______________________________________________") << endl << endl;
 	}
-	t.after(1000*N_SECS_CHECK, checkRobot);
+	t.after(1000*N_SECS_ROBOT_CHECK, checkRobot);
 }
 
 float calcForce(int idx){
