@@ -60,11 +60,25 @@ Gli obbiettivi sono..
 
 \section{Scenario di Progetto}
 Nel progetto si fa riferimento ad uno scenario semplificato rispetto a quello esposto in STEMNET.
-Ci si vuole ridurre al caso di un singolo STEM-Node (SN) in modo da poterne studiare nello specifico le possibilità implementative.
-L'idea è quella di posizionare lo SN tra altri due nodi Wi-Fi, i quali simulerebbero il comportamento di altri SN o delle isole.
-Applicando 
+Ci si vuole ridurre al caso di un singolo sensore STEM-Node (SN) in modo da poterne studiare nello specifico le possibilità implementative.
+L'idea è quella di posizionare l'SN tra altri due nodi Wi-Fi, i quali simulerebbero tramite il comportamento delle isole o, tramite movimento manuale l'azione di altri SN.
+Il sistema di tutti i nodi Wi-Fi (SN compreso) viene distribuito su una linea retta per facilitarne lo studio iniziale, eliminando le problematiche della determinazione della posizione geografica dei nodi (ci si focalizza sul movimento dipendente esclusivamente dal Link Budget).
+Una volta che lo sviluppo di un singolo SN sarà terminato e testato, si passerà ad ampliare lo scenario aggiungendo molteplici SN, apportando le opportune modifiche hardware e software, studiandone poi il comportamento.
+
+\section{Analisi dei Requisiti}
+Lo scenario di progetto richiede che:
+\begin{itemize}
+\item
+l'SN sia dotato di almeno un modulo radio (Wi-Fi in questo caso), tramite il quale l'SN possa percepire la potenza di segnale di altri punti radio nel suo raggio di ricezione (determinato dalla sensibilità dello stesso modulo).
+\item
+l'SN si possa muovere autonomamente e che quindi possa controllare uno o più dispositivi di movimento, quali uno o più motori con delle ruote o delle eliche se si pensa ad un contesto aereo.
+\item
+l'SN sia in grado di ricevere e trasmettere del traffico di rete, permettendo quindi la comunicazione tra i due nodi Wi-Fi estremi al sistema, anche qual'ora essi non siano nello stesso raggio di copertura.    
+\end{itemize}
+
 
 \chapter{Progettazione}
+%TODO: Requisiti?
 
 
 \end{document}
