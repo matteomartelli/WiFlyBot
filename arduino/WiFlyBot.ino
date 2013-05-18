@@ -197,6 +197,7 @@ void loop() {
 		if(strcmp(str, cmdOpen) == 0){
 			//Open
 			sendCmd(&wifi, "set ip proto 2");
+			sendCmd(&wifi, "set comm idle "+N_SECS_ROBOT_CHECK);
 			wifi.exitCommandMode();
 			
 			Serial.println("Connection opened");
@@ -215,7 +216,11 @@ void loop() {
 			wifi.print( "HTTP/1.1 200 OK\r\n");
 			wifi.print( "Content-Type: text/html\r\n" );
 			wifi.print( "Content-Length: " );
-			wifi.print( 1000 ); //TODO: how much here?
+			int len = 100;
+			for(int i = 0; i < N_ENDPOINTS; i++)
+				if(!endPoints[i].empty) 
+					len += 300;
+			wifi.print( len ); //TODO: how much here?
 			
 			wifi.print( "Connection: Close\r\n" );
 			wifi.print( "\r\n" );
@@ -246,9 +251,10 @@ void loop() {
 							<< F("</TD><TD>") << endPoints[i].position
 							<< F("</TR></TABLE>") << endl;
 				}
+				#if 0
 				wifi << F("<P> Max Resultant: ") << maxResultant /*<< F("Criticality: ") << C */ << F(" | R: ") << R << (" | RNorm: " ) << RNorm 
 					<< F ("</P><P>Gamma: ") << gamma << F(" | Motion Probability: ") << motionProbability << endl
-					<< F (" | Random: ") << randNum << 
+					<< F (" | Random: ") << randNum;
 				if(lastMove > -1){
 					if(lastMove == 1)
 						wifi << F(" | Last Move: FORWARD");
@@ -260,10 +266,14 @@ void loop() {
 				}else
 					wifi << F(" | Last Move: STATIONARY");
 				wifi << F("</P>"); 
+				#endif
 			}
-			wifi << "</HTML>\r\n\r\n";
-			for(int i = 0; i < 1000; i++) //TODO: Very ugly workaround...find a better way!!!
+			
+				
+			for(int i = 0; i < 100; i++) //TODO: Very ugly workaround...find a better way!!!
 				wifi.write( (byte)0 );
+			wifi << "</HTML>\r\n\r\n";
+			
 				
 			sendCmd(&wifi, "set ip proto 3");
 			wifi.exitCommandMode();
