@@ -3,7 +3,6 @@
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
 \usepackage{hyperref}
-\usepackage{graphicx}
 
 \title{TITOLO PROVVISORIO}
 \author{Matteo Martelli}
@@ -79,10 +78,7 @@ l'SN sia in grado di ricevere e trasmettere del traffico di rete, permettendo qu
 
 
 \chapter{Progettazione}
-Si è scelto di utilizzare i componenti hardware elencati nella sezione "Risorse e strumenti impiegati" affinchè potessero venir soddisfatti i requisiti specificati in "Analisi dei Requisiti". L'SN consiste quindi di un Arduino UNO collegato ad un'unità mobile (Magician Chassis ROB-10825) composta da due motori utilizzati per il movimento ed ad un modulo Wi-Fi(WiFly Shield RN-XV). I motori vengono controllati tramite un motor driver (Motor Driver 1A Dual TB6612FNG) al quale il microcontrollore trasmette in output tensione modulata in tipo PWM dai pin digitali. %TODO come è collegato il modulo wifi... 
-
-\includegraphics[scale=0.3]{sn.png}
-
+Si è scelto di utilizzare i componenti hardware elencati nella sezione "Risorse e strumenti impiegati" affinchè potessero venir soddisfatti i requisiti specificati in "Analisi dei Requisiti". L'SN consiste quindi di un Arduino UNO collegato ad un'unità mobile composta da due motori utilizzati per il movimento ed ad un modulo Wi-Fi. 
 %TODO spiegazione algoritmo stemnet
 La parte software è divisa essenzialmente nelle due parti spiegate di seguito.
 \section{Programma Wiring per Arduino}
