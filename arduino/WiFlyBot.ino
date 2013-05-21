@@ -190,7 +190,7 @@ void loop() {
 			}
 		}		
 	}
-	
+	#if 1
 	if(enterParse){
 		enterParse = false;
 		Serial << F("STR: x") << str << F("x ")<<endl;
@@ -213,15 +213,13 @@ void loop() {
 					break;
 			}*/
 			/*char *data = "<html><body>welcome!</body></html>\n";*/
-			wifi.print( "HTTP/1.1 200 OK\r\n");
+			wifi.print( "\r\nHTTP/1.1 200 OK\r\n");
 			wifi.print( "Content-Type: text/html\r\n" );
 			wifi.print( "Content-Length: " );
-			int len = 100;
-			for(int i = 0; i < N_ENDPOINTS; i++)
-				if(!endPoints[i].empty) 
-					len += 300;
-			wifi.print( len ); //TODO: how much here?
+			int len = 100+(300*N_ENDPOINTS);
 			
+			wifi.print( 680 ); //TODO: how much here?
+			wifi.print("\r\n");
 			wifi.print( "Connection: Close\r\n" );
 			wifi.print( "\r\n" );
 			
@@ -236,10 +234,10 @@ void loop() {
 
 			/*char forceStr[5]; TODO: store the force in the WiflyNode
 			itoa(F, forceStr, 5);*/
-			if (!allEmpty){
+			//if (!allEmpty){
 				for(int i = 0; i < N_ENDPOINTS; i++){
-					if(endPoints[i].empty) 
-						continue;
+					/*if(endPoints[i].empty) 
+						continue;*/
 					
 					wifi << F("<TABLE BORDER=\"1\"><TR><TH>ID</TH><TH>IP</TH><TH>MAC</TH><TH>RSSI</TH><TH>LB</TH><TH>FORCE</TH><TH>POS</TH></TR>")
 							<< F("<TR><TD>") << i 
@@ -251,7 +249,7 @@ void loop() {
 							<< F("</TD><TD>") << endPoints[i].position
 							<< F("</TR></TABLE>") << endl;
 				}
-				#if 0
+				#if 1
 				wifi << F("<P> Max Resultant: ") << maxResultant /*<< F("Criticality: ") << C */ << F(" | R: ") << R << (" | RNorm: " ) << RNorm 
 					<< F ("</P><P>Gamma: ") << gamma << F(" | Motion Probability: ") << motionProbability << endl
 					<< F (" | Random: ") << randNum;
@@ -267,14 +265,17 @@ void loop() {
 					wifi << F(" | Last Move: STATIONARY");
 				wifi << F("</P>"); 
 				#endif
-			}
+			//}
 			
-				
-			for(int i = 0; i < 100; i++) //TODO: Very ugly workaround...find a better way!!!
-				wifi.write( (byte)0 );
-			wifi << "</HTML>\r\n\r\n";
+			wifi << "</HTML>";
+			/*for(int i = 0; i < 100; i++){ //TODO: Very ugly workaround...find a better way!!!
+				wifi.write( " " );
+				wifi.write(byte(0));
+			}*/
 			
-				
+			wifi.write(byte(0));
+			
+			sendCmd(&wifi, "close");
 			sendCmd(&wifi, "set ip proto 3");
 			wifi.exitCommandMode();
 		}
@@ -284,6 +285,7 @@ void loop() {
 			
 		} 
 	}
+	#endif
 	
 	if(endRead){
 		short int rssint; //integer rssi 
@@ -315,6 +317,8 @@ void loop() {
 					maxResultant += sqrt(((float)MAX_LB) / ((float)LB_REQ)) - 1; //Repulsive
 			}
 			
+			
+			Serial << F("IP: ") << ip << F(" | RSSI: ") << rssi << endl;
 				
 			/* If it comes here, it should have found the correct idx */
 			memcpy(endPoints[idx].ip, ip, strlen(ip)); 
@@ -351,6 +355,8 @@ void checkRobot(){ //TODO: Move this in a timer interrupt routine
 			R += endPoints[i].force;
 			//C = max(C, criticality(i)); TODO: not used for now
 			
+			Serial << F("IP: ") << endPoints[i].ip << F(" | RSSI: ") << endPoints[i].rssi << endl;
+			
 			
 		}
 		/* The move probability is proportional to the RNorm and decreases with a high criticality */
@@ -364,18 +370,18 @@ void checkRobot(){ //TODO: Move this in a timer interrupt routine
 			<< F ("Gamma: ") << gamma << F(" Motion Probability: ") << motionProbability << endl
 			<< F ("Random: ") << randNum << endl;
 		
-		speed = RNorm*250 + 55;
+		speed = RNorm*200 + 55;
 		
 		/* TODO: Calculate R_NORM, p with a choosen ATTENUATION, get a random number, if random < p move otherwise don't move */
 		if(randNum < motionProbability){ /* TODO What is the criticality bound at which I should move ? */
 		
-			if(R > 0 && speed >= 55){
+			if(R > 0 && speed > 55){
 				/* Move forward */
 				lastMove = 1;
 				Serial << F("moving forward with speed ") << speed << endl;
 				move(1, speed, 1); /* TODO: check temp motor defect */
 				move(2, speed, 1);
-			}else if (R < 0 && speed >= 55){
+			}else if (R < 0 && speed > 55){
 				/* Move backward */
 				lastMove = 0;
 				Serial << F("moving backward with speed ") << speed << endl;

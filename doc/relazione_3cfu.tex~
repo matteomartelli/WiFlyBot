@@ -78,13 +78,7 @@ l'SN sia in grado di ricevere e trasmettere del traffico di rete, permettendo qu
 
 
 \chapter{Progettazione}
-Si è scelto di utilizzare i componenti hardware elencati nella sezione "Risorse e strumenti impiegati" affinchè potessero venir soddisfatti i requisiti specificati in "Analisi dei Requisiti". L'SN consiste quindi di un Arduino UNO collegato ad un'unità mobile composta da due motori utilizzati per il movimento ed ad un modulo Wi-Fi. 
-%TODO spiegazione algoritmo stemnet
-La parte software è divisa essenzialmente nelle due parti spiegate di seguito.
-\section{Programma Wiring per Arduino}
-  Il programma scritto in Wiring per Arduino è la parte di software cuore del progetto. Come già accennato in precedenza, "Wiring" generalmente è una piattaforma di sviluppo open source composta da un linguaggio di programmazione, un ambiente di sviluppo integrato (Integrated Development Environment o IDE) ed un circuito stampato basato su un microcontrollore. Nel nostro caso il linguaggio di programmazione è composto da un ibrido tra C e C++ creato appositamente dal team Arduino. Lo stesso team ha messo a disposizione anche un IDE apposito che facilita l'interfacciamento alla board Arduino (scrittura del codice, compilazione e flashing). Tramite questa parte l'Arduino riesce a controllare il suo movimento, analizzando la potenza di segnale dei nodi connessi alla rete stabilendo se muoversi, in quale direzione e con quale velocità. Prima di effettuare la decisione l'Arduino analizza se la rete è critica ovvero se è a rischio di rottura. Inoltre a priori viene stabilito un fattore di attenuazione della forza di movimento che, insieme alla criticità della rete, costituiscono una "Probabilità di Movimento". L'SN quindi tiene in considerazione la probabilità di movimento prima di prendere la decisione. Questo comporta che l'SN non si muoverà se il rischio di rottura della rete è alto e diminuirà la sua reazione a piccoli stimoli con l'aumentare del fattore di attenuazione. I dettagli implementativi verrano spiegati di seguito nel capitolo 4.
-\section{Programma Python per sistemi Linux}
-  Il programma scritto in python per sistemi Linux è quella parte del 
+%TODO: Requisiti?
 
 
 \end{document}
