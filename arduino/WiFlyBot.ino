@@ -127,17 +127,22 @@ void loop() {
 	while (wifi.available() && ((chMisc = wifi.read()) > -1)) {
 		
 		/* PKT FORMAT: ###IP,MAC,RSSI; */
-		//Serial << chMisc;
+		Serial << chMisc;
 		if(enterParse){
 			if(i < 5){
 				Serial << F("B") << i;
+				if(chMisc != cmdOpen[i] && chMisc != cmdClose[i]){
+					i = 0;
+					enterParse = false;
+					continue;
+				}
 				str[i++] = chMisc;
 				if (i == 5){Serial << endl; break;}
 				else continue;
 			}
 		}
 
-		if(chMisc == '*'){
+		if(chMisc == '*' && !enterParse){
 			Serial << F("E") << endl;
 			enterParse = true;
 			continue;
@@ -204,7 +209,7 @@ void loop() {
 			
 			//char cmd[128], line[128];
 			
-			//while(wifi.available());
+			while(wifi.read() > -1) ;
 			//read_line( cmd );
 			//Serial.println( cmd );
 			/*while( read_line( line ) > 1 ){
@@ -213,6 +218,7 @@ void loop() {
 					break;
 			}*/
 			/*char *data = "<html><body>welcome!</body></html>\n";*/
+			Serial << F("AAAA");
 			wifi.print( "\r\nHTTP/1.1 200 OK\r\n");
 			wifi.print( "Content-Type: text/html\r\n" );
 			wifi.print( "Content-Length: " );
@@ -273,7 +279,7 @@ void loop() {
 				wifi.write(byte(0));
 			}*/
 			
-			wifi.write(byte(0));
+			//wifi.write(byte(0));
 			
 			sendCmd(&wifi, "close");
 			sendCmd(&wifi, "set ip proto 3");
@@ -370,23 +376,23 @@ void checkRobot(){ //TODO: Move this in a timer interrupt routine
 			<< F ("Gamma: ") << gamma << F(" Motion Probability: ") << motionProbability << endl
 			<< F ("Random: ") << randNum << endl;
 		
-		speed = RNorm*200 + 55;
+		speed = RNorm*130 + 120;
 		
 		/* TODO: Calculate R_NORM, p with a choosen ATTENUATION, get a random number, if random < p move otherwise don't move */
 		if(randNum < motionProbability){ /* TODO What is the criticality bound at which I should move ? */
 		
-			if(R > 0 && speed > 55){
+			if(R > 0 && speed > 120){
 				/* Move forward */
 				lastMove = 1;
 				Serial << F("moving forward with speed ") << speed << endl;
-				move(1, speed, 1); /* TODO: check temp motor defect */
-				move(2, speed, 1);
-			}else if (R < 0 && speed > 55){
+				move(0, speed, 1); /* TODO: check temp motor defect */
+				move(1, speed, 0);
+			}else if (R < 0 && speed > 120){
 				/* Move backward */
 				lastMove = 0;
 				Serial << F("moving backward with speed ") << speed << endl;
-				move(1, speed, 0); /* TODO: check temp motor defect */
-				move(2, speed, 0);
+				move(0, speed, 0); /* TODO: check temp motor defect */
+				move(1, speed, 1);
 			}else{
 				Serial << F("Stop not enough speed") << endl;
 				stop();

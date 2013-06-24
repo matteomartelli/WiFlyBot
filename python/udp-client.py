@@ -62,8 +62,10 @@ parser = OptionParser()
 parser.add_option("--noiw",
                   action="store_false", dest="useiw", default=True,
                   help="don't use the iw command to get the rssi")
-parser.add_option("-d", "--power-difect",dest="powerDifect", default="0",
+parser.add_option("--power-difect",dest="powerDifect", default="0",
                   help="add a power difect to the interface")
+parser.add_option("--default",dest="defaultRSSI", default="01",
+				  help="use a predefined value for the RSSI")
 
 (options, args) = parser.parse_args()
 
@@ -88,6 +90,7 @@ remote_ip = sys.argv[2]
 remote_port = int(sys.argv[3])
 remote_MAC = sys.argv[4]
 powerDifect = int(options.powerDifect)
+defaultRSSI = options.defaultRSSI
 
 cmdIfConfig = "ifconfig "+iface;
 ifconf = commands.getoutput(cmdIfConfig)
@@ -113,7 +116,7 @@ while True:
 	rssi = getRssi(iface, remote_MAC, options.useiw)
 	
 	if rssi == False:
-		rssi = "01"
+		rssi = defaultRSSI
 		"""else:
 		#Convert the rssi string to a hex format string
 		rssi = hex(int(rssi.replace('-', ''))).replace('0x','')

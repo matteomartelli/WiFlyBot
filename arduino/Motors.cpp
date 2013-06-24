@@ -17,21 +17,22 @@
     along with WiFlyBot.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include <Streaming.h>
+#include "Consts.h"
 
 /* MOTORS FIELDS */
 //motor A connected between A01 and A02
 //motor B connected between B01 and B02
-int STBY = 10; //standby
+int STBY = DRIVER_STBY; //standby
 
 //Motor A
-int PWMA = 3; //Speed control 
-int AIN1 = 9; //Direction
-int AIN2 = 8; //Direction
+int PWMA = DRIVER_PWMA; //Speed control 
+int AIN1 = DRIVER_AIN1; //Direction
+int AIN2 = DRIVER_AIN2; //Direction
 
 //Motor B
-int PWMB = 5; //Speed control
-int BIN1 = 11; //Direction
-int BIN2 = 12; //Direction
+int PWMB = DRIVER_PWMB; //Speed control
+int BIN1 = DRIVER_BIN1; //Direction
+int BIN2 = DRIVER_BIN2; //Direction
 
 void motorSetup(){
 	pinMode(STBY, OUTPUT);
