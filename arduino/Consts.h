@@ -36,8 +36,8 @@ driver										stby 	pwma	ain1	ain2	bin1	pwmb	bin2
 #define N_ENDPOINTS 2
 
 /* STEM-NODE FIELDS */
-#define N_SECS_HTML_REFRESH 4
-#define N_SECS_ROBOT_CHECK 3
+#define N_SECS_HTML_REFRESH 3
+#define N_SECS_ROBOT_CHECK 2
 #define LB_REQ		50
 #define SENSITIVITY 	-83 //from wifly rn171 manual
 #define MAX_RSSI 		-10

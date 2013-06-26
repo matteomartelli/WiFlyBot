@@ -25,7 +25,7 @@
 #include "Consts.h"
 #include "Utils.h"
 
-String ssid = "ARDUINOS";
+String ssid = "STEM-Mesh";
 String localIp = "10.42.1.11";
 String localPort = "5005";
 String netMask = "255.255.255.0";
