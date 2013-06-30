@@ -121,6 +121,8 @@ char *cmdClose = "CLOS*";
 bool enterParse = false;
 char str[8];
 void loop() {
+	
+	
 	t.update(); //TODO: better move this in a timer interrupt as the while below can run for too much time.. 
 	int i = 0;
 	memset(str, '\0', 8);
@@ -128,25 +130,6 @@ void loop() {
 		
 		/* PKT FORMAT: ###IP,MAC,RSSI; */
 		Serial << chMisc;
-		if(enterParse){
-			if(i < 5){
-				Serial << F("B") << i;
-				if(chMisc != cmdOpen[i] && chMisc != cmdClose[i]){
-					i = 0;
-					enterParse = false;
-					continue;
-				}
-				str[i++] = chMisc;
-				if (i == 5){Serial << endl; break;}
-				else continue;
-			}
-		}
-
-		if(chMisc == '*' && !enterParse){
-			Serial << F("E") << endl;
-			enterParse = true;
-			continue;
-		}
 
 		if(sharps == 3){
 			startRead = 1;
@@ -195,105 +178,9 @@ void loop() {
 			}
 		}		
 	}
-	#if 1
-	if(enterParse){
-		enterParse = false;
-		Serial << F("STR: x") << str << F("x ")<<endl;
-		if(strcmp(str, cmdOpen) == 0){
-			//Open
-			sendCmd(&wifi, "set ip proto 2");
-			sendCmd(&wifi, "set comm idle "+N_SECS_ROBOT_CHECK);
-			wifi.exitCommandMode();
-			
-			Serial.println("Connection opened");
-			
-			//char cmd[128], line[128];
-			
-			while(wifi.read() > -1) ;
-			//read_line( cmd );
-			//Serial.println( cmd );
-			/*while( read_line( line ) > 1 ){
-				Serial.print( line );
-				if( line[0] == '\r' )
-					break;
-			}*/
-			/*char *data = "<html><body>welcome!</body></html>\n";*/
-			Serial << F("AAAA");
-			wifi.print( "\r\nHTTP/1.1 200 OK\r\n");
-			wifi.print( "Content-Type: text/html\r\n" );
-			wifi.print( "Content-Length: " );
-			int len = 100+(300*N_ENDPOINTS);
-			
-			wifi.print( 680 ); //TODO: how much here?
-			wifi.print("\r\n");
-			wifi.print( "Connection: Close\r\n" );
-			wifi.print( "\r\n" );
-			
-			//wifi << F("<HTML>ciao");
-			
-			wifi << F("<HTML><META HTTP-EQUIV=\"REFRESH\" CONTENT=\"") << N_SECS_HTML_REFRESH << F("\">")
-					<< F("<P>LB Required: ") << LB_REQ
-					<< F(" | Sensitivity: ") << SENSITIVITY
-					<< F(" | MAX_LB: ") << MAX_LB
-					<< F(" | MIN_LB: ") << MIN_LB
-					<< F("</P>") << endl;
-
-			/*char forceStr[5]; TODO: store the force in the WiflyNode
-			itoa(F, forceStr, 5);*/
-			//if (!allEmpty){
-				for(int i = 0; i < N_ENDPOINTS; i++){
-					/*if(endPoints[i].empty) 
-						continue;*/
-					
-					wifi << F("<TABLE BORDER=\"1\"><TR><TH>ID</TH><TH>IP</TH><TH>MAC</TH><TH>RSSI</TH><TH>LB</TH><TH>FORCE</TH><TH>POS</TH></TR>")
-							<< F("<TR><TD>") << i 
-							<< F("</TD><TD>") << endPoints[i].ip
-							<< F("</TD><TD>") << endPoints[i].mac
-							<< F("</TD><TD>") << endPoints[i].rssi 
-							<< F("</TD><TD>") << endPoints[i].lb
-							<< F("</TD><TD>") << endPoints[i].force
-							<< F("</TD><TD>") << endPoints[i].position
-							<< F("</TR></TABLE>") << endl;
-				}
-				#if 1
-				wifi << F("<P> Max Resultant: ") << maxResultant /*<< F("Criticality: ") << C */ << F(" | R: ") << R << (" | RNorm: " ) << RNorm 
-					<< F ("</P><P>Gamma: ") << gamma << F(" | Motion Probability: ") << motionProbability << endl
-					<< F (" | Random: ") << randNum;
-				if(lastMove > -1){
-					if(lastMove == 1)
-						wifi << F(" | Last Move: FORWARD");
-					if(lastMove == 0)
-						wifi << F(" | Last Move: BACKWARD");
-					else wifi << F("MOVE ERROR");
-					
-					wifi << F(" | speed: ") << speed;
-				}else
-					wifi << F(" | Last Move: STATIONARY");
-				wifi << F("</P>"); 
-				#endif
-			//}
-			
-			wifi << "</HTML>";
-			/*for(int i = 0; i < 100; i++){ //TODO: Very ugly workaround...find a better way!!!
-				wifi.write( " " );
-				wifi.write(byte(0));
-			}*/
-			
-			//wifi.write(byte(0));
-			
-			sendCmd(&wifi, "close");
-			sendCmd(&wifi, "set ip proto 3");
-			wifi.exitCommandMode();
-		}
-		else if(strcmp(str, cmdClose) == 0){
-			//Close
-			Serial.println("Connection closed");
-			
-		} 
-	}
-	#endif
 	
 	if(endRead){
+		Serial << "ENDREAD" << endl; //DEBUG
 		short int rssint; //integer rssi 
 		if( (strlen(mac) == MAC_STR_LEN) && (checkIP(ip)) && ((rssint = atoi(rssi)) < 1) ){
 		
@@ -338,9 +225,10 @@ void loop() {
 			if (endPoints[idx].lb > MAX_LB) endPoints[idx].lb = MAX_LB;
 			if (endPoints[idx].lb < MIN_LB) endPoints[idx].lb = MIN_LB;
 
-			resetFields();
 		}
+		resetFields();
 	}
+	
 	
 }
 
@@ -358,23 +246,29 @@ void checkRobot(){ //TODO: Move this in a timer interrupt routine
 				continue; //Skip the empty nodes
 			
 			endPoints[i].force = calcForce(i);
+			endPoints[i].criticality = criticality(i);
 			R += endPoints[i].force;
-			//C = max(C, criticality(i)); TODO: not used for now
+			C = max(C, endPoints[i].criticality); //TODO: not used for now
 			
 			Serial << F("IP: ") << endPoints[i].ip << F(" | RSSI: ") << endPoints[i].rssi << endl;
-			
+			//idx,ip,mac,rssi,lb,force,criticality,pos;
+			wifi << i << F(",") << endPoints[i].ip << F(",") << endPoints[i].mac << F(",") << endPoints[i].rssi << F(",")
+				<< endPoints[i].lb << F(",") << endPoints[i].force << F(",") 
+				<< endPoints[i].criticality << F(",") << endPoints[i].position << F(";");
 			
 		}
 		/* The move probability is proportional to the RNorm and decreases with a high criticality */
 		RNorm = fabs(R)/maxResultant;
-		gamma = ((float)ATTENUATION) / (1 /* Don't consider criticality for now - C */);
+		gamma = ((float)ATTENUATION) / (1 - C );
 		motionProbability = pow(RNorm, gamma); 
 		int r = rand() % 100 + 1;
 		randNum = ((float)r) / 100;
 		
-		Serial << F("Max Resultant: ") << maxResultant /*<< F("Criticality: ") << C */ << F(" R: ") << R << (" RNorm: " ) << RNorm << endl
+		Serial << F("Max Resultant: ") << maxResultant << F("Criticality: ") << C  << F(" R: ") << R << (" RNorm: " ) << RNorm << endl
 			<< F ("Gamma: ") << gamma << F(" Motion Probability: ") << motionProbability << endl
 			<< F ("Random: ") << randNum << endl;
+		
+		
 		
 		speed = RNorm*130 + 120;
 		
@@ -403,6 +297,9 @@ void checkRobot(){ //TODO: Move this in a timer interrupt routine
 			stop();
 		}  
 		
+		//@maxResultant,criticality,R,Rnorm,gamma,random,prob,move
+		wifi << F("@") << maxResultant << F(",") << C << F(",") << R << F(",") << RNorm << F(",") 
+			<< gamma << F(",") << randNum << F(",") << motionProbability << F(",") << lastMove << endl;
 		
 		Serial << F("_______________________________________________") << endl << endl;
 	}

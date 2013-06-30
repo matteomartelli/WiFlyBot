@@ -29,6 +29,8 @@ String ssid = "STEM-Mesh";
 String localIp = "10.42.1.11";
 String localPort = "5005";
 String netMask = "255.255.255.0";
+String remoteIp = "10.42.1.5";
+String remotePort = "5006";
 //String gateway = "10.42.1.4";
 
 WiFlySerial wifi(ARDUINO_RX_PIN, ARDUINO_TX_PIN);
@@ -74,6 +76,7 @@ void wifiSetup(){
 
 	/* Create the ad-hoc connection */
 	//sendCmd(&wifi, "scan");
+	
 	sendCmd(&wifi, "set wlan join 4"); //Ad-hoc mode (change to 1 for joining an existing network)
 	sendCmd(&wifi, "set wlan ssid "+ssid);
 	//sendCmd(&wifi, "set join "+ssid); //For join an existing network
@@ -87,6 +90,9 @@ void wifiSetup(){
 	
 	sendCmd(&wifi, "set ip proto 3"); //TCP + UDP
 	sendCmd(&wifi, "set ip local "+localPort);
+	sendCmd(&wifi, "set ip host "+remoteIp);   // needed to send udp data pkts   
+	sendCmd(&wifi, "set ip remote "+remotePort);
+	sendCmd(&wifi, "set comm time 0"); //disable forwarding based on flush timer
 	sendCmd(&wifi, "save");
 	sendCmd(&wifi, "reboot");
 

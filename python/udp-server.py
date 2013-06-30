@@ -1,4 +1,4 @@
-/* 
+"""
     Copyright (C) 2013 Matteo Martelli.
 
     This file is part of WiFlyBot.
@@ -15,21 +15,18 @@
 
     You should have received a copy of the GNU General Public License
     along with WiFlyBot.  If not, see <http://www.gnu.org/licenses/>.
-*/
-#ifndef TYPES_H
-#define TYPES_H
+"""
+#!/usr/bin/env python
 
-#include "Consts.h"
+import socket
 
-typedef struct WiFiNode{
-	char ip[IP_BUFFER_SIZE]; 
-	char mac[MAC_BUFFER_SIZE];
-	short int rssi;
-	short int lb;
-	short int position; /* This will be replaced with GPS coordinates */
-	float force;
-	float criticality;
-	bool empty;
-}WiFiNode;
+UDP_IP = "10.42.1.5"
+UDP_PORT = 5006
 
-#endif
+sock = socket.socket(socket.AF_INET, # Internet
+                     socket.SOCK_DGRAM) # UDP
+sock.bind((UDP_IP, UDP_PORT))
+
+while True:
+    data, addr = sock.recvfrom(1024) # buffer size is 1024 bytes
+    print (data),
