@@ -259,8 +259,16 @@ void checkRobot(){ //TODO: Move this in a timer interrupt routine
 		}
 		/* The move probability is proportional to the RNorm and decreases with a high criticality */
 		RNorm = fabs(R)/maxResultant;
-		gamma = ((float)ATTENUATION) / (1 - C );
-		motionProbability = pow(RNorm, gamma); 
+		
+		if(C < 1){
+			#if NO_CRITICALITY
+			C = 0;
+			#endif
+			gamma = ((float)ATTENUATION) / (1 - C);
+			motionProbability = pow(RNorm, gamma); 
+		}else //This avoids the division by zero and STOPs the motors in case of high criticality 
+			motionProbability = 0;
+		
 		int r = rand() % 100 + 1;
 		randNum = ((float)r) / 100;
 		
